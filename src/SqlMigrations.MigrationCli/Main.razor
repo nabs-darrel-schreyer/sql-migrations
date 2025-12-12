@@ -1,0 +1,71 @@
+@using RazorConsole.Components
+@using Spectre.Console
+
+@inject MainViewModel ViewModel
+
+<Figlet Content="NABS Migrations" />
+@if (ProjectScanner.Solution == null)
+{
+    <p>No solution was found to scan.</p>
+    return;
+}
+<Newline />
+<Panel Title="Net Advantage Migrations" Border="BoxBorder.Rounded" Expand="true">
+    <Rows>
+        <h1>Solution Folder Scanned</h1>
+        <p><em>@ProjectScanner.Solution.SolutionFile.FullName</em></p>
+        <Newline />
+        <h1>Projects Found (with DbContext)</h1>
+        <p><em>The following project and their DbContext(s) where found:</em></p>
+        <Padder Padding="new Padding(2, 0, 0, 0)">
+            <Rows>
+                @foreach (var projectItem in ProjectScanner.Solution.ProjectItems)
+                {
+                    <h2>@projectItem.ProjectFile.Name.Replace(".csproj", "")</h2>
+                    <p><em>@projectItem.ProjectFile.FullName</em></p>
+                    <Newline />
+                    @foreach (var dbContextItem in projectItem.DbContextItems)
+                    {
+                        <h3>@dbContextItem.DbContextType.Name</h3>
+                        <p><em>@dbContextItem.DbContextFactoryType.Name</em></p>
+                        <Columns>
+                            <TextButton Content="Reset Database" OnClick="() => ViewModel.ResetDatabase(dbContextItem)" FocusedColor="@Color.Blue" BackgroundColor="@Color.Gray" />
+                        </Columns>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Migration</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var migrationItem in dbContextItem.Migrations)
+                                {
+                                    <tr>
+                                        <td>
+                                            <TextButton Content="@($"Revert")" OnClick="() => ViewModel.RevertMigration(dbContextItem, migrationItem)" FocusedColor="@Color.Blue" BackgroundColor="@Color.Gray" />
+                                        </td>
+                                        <td>@migrationItem.Name</td>
+                                    </tr>
+
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    <Newline />
+                }
+            </Rows>
+        </Padder>
+        <Newline />
+        <TextButton Content="Exit" OnClick="() => ViewModel.Exit()" FocusedColor="@Color.Blue" BackgroundColor="@Color.Gray" />
+    </Rows>
+</Panel>
+<Newline />
+
+@code {
+
+    protected override void OnInitialized()
+    {
+        ViewModel.Init();
+    }
+}
