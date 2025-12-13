@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.Extensions.DependencyInjection;
 using System.Globalization;
 using System.Reflection;
 
@@ -10,26 +9,26 @@ public static class ProjectScanner
 {
     public static SolutionItem? Solution { get; private set; }
 
-    public static IServiceCollection Scan(this IServiceCollection services)
+    public static void Scan(string? searchPath)
     {
-        var solutionDirectory = new DirectoryInfo(Directory.GetCurrentDirectory());
-        
+        var solutionDirectory = string.IsNullOrWhiteSpace(searchPath)
+            ? new DirectoryInfo(Directory.GetCurrentDirectory())
+            : new DirectoryInfo(searchPath);
+
         while (solutionDirectory is not null)
         {
-            ScanSolution(solutionDirectory);
-            
+            ScanForSolution(solutionDirectory);
+
             if (Solution is not null)
             {
                 break;
             }
-            
+
             solutionDirectory = solutionDirectory.Parent;
         }
-
-        return services;
     }
 
-    public static void ScanSolution(this DirectoryInfo solutionDirectory)
+    public static void ScanForSolution(this DirectoryInfo solutionDirectory)
     {
         var solutionFile = solutionDirectory
             .EnumerateFiles()
@@ -45,10 +44,10 @@ public static class ProjectScanner
             SolutionFile = solutionFile
         };
 
-        Solution.ScanProjects();
+        Solution.ScanForProjects();
     }
 
-    private static void ScanProjects(this SolutionItem solutionItem)
+    private static void ScanForProjects(this SolutionItem solutionItem)
     {
         var projectFiles = solutionItem.SolutionFile.Directory!
             .EnumerateFiles("*.csproj", SearchOption.AllDirectories);
@@ -59,7 +58,7 @@ public static class ProjectScanner
             {
                 ProjectFile = projectFile
             };
-            projectItem.ScanDbContexts();
+            projectItem.ScanForDbContexts();
 
             if (projectItem.DbContextItems.Count > 0)
             {
@@ -68,7 +67,7 @@ public static class ProjectScanner
         }
     }
 
-    private static void ScanDbContexts(this ProjectItem projectItem)
+    private static void ScanForDbContexts(this ProjectItem projectItem)
     {
         var projectAssembly = projectItem.ProjectFile.LoadProjectAssembly();
         if (projectAssembly == null)
@@ -83,9 +82,9 @@ public static class ProjectScanner
             // Find corresponding factory type (assuming naming convention: {DbContextName}Factory)
             var factoryTypeName = $"{dbContextType.Name}Factory";
             var factoryType = projectAssembly.GetTypes()
-                .FirstOrDefault(t => t.Name == factoryTypeName && 
+                .FirstOrDefault(t => t.Name == factoryTypeName &&
                                     typeof(IDesignTimeDbContextFactory<>).MakeGenericType(dbContextType).IsAssignableFrom(t));
-            
+
             if (factoryType == null)
             {
                 continue;
@@ -97,28 +96,39 @@ public static class ProjectScanner
                 DbContextFactoryType = factoryType
             };
 
-            dbContextItem.ScanMigrations();
+            dbContextItem.ScanForMigrations();
 
             projectItem.DbContextItems.Add(dbContextItem);
         }
     }
 
-    private static void ScanMigrations(this DbContextItem dbContextItem)
+    private static void ScanForMigrations(this DbContextItem dbContextItem)
     {
-        using var dbContext = dbContextItem.CreateDbContext();
+        using var dbContext = dbContextItem.CreateDbContext()!;
 
-        var migrations = dbContext.Database.GetMigrations();
+        var assemblyMigrations = dbContext.Database.GetMigrations();
+        var appliedMigrations = dbContext.Database.GetAppliedMigrations();
+        var pendingMigrations = dbContext.Database.GetPendingMigrations();
 
-        foreach (var migration in migrations)
+        foreach (var migration in assemblyMigrations)
         {
+            var isApplied = appliedMigrations.Contains(migration);
+            var isPending = pendingMigrations.Contains(migration);
+
             var migrationParts = migration.Split('_');
+            var migrationName = migrationParts[1];
+            var migrationCreatedOn = DateTime.ParseExact(migrationParts[0], "yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+
             var migrationItem = new MigrationItem
             {
                 FullName = migration,
-                Name = migrationParts[1],
-                AppliedOn = DateTime.ParseExact(migrationParts[0], "yyyyMMddHHmmss", CultureInfo.InvariantCulture)
+                Name = migrationName,
+                Status = isApplied ? "Applied" : isPending ? "Pending" : "Unknown",
+                CreatedOn = migrationCreatedOn,
+                AppliedOn = null
             };
-            dbContextItem.Migrations.Add(migrationItem);
+
+            dbContextItem.MigrationItems.Add(migrationItem);
         }
 
     }

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
@@ -14,7 +14,8 @@
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" PrivateAssets="all" />
-		<PackageReference Include="RazorConsole.Core" Version="0.3.0-alpha.20251210-74235ee" />
+		<PackageReference Include="Spectre.Console" Version="0.54.1-alpha.0.10" />
+		<PackageReference Include="Spectre.Console.Cli" Version="1.0.0-alpha.0.11" />
 	</ItemGroup>
 
 </Project>

@@ -1,75 +1,36 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using RazorConsole.Core;
-using SqlMigrations.MigrationCli;
+using Spectre.Console;
+using Spectre.Console.Cli;
 
-var hostBuilder = Host.CreateDefaultBuilder(args);
+var app = new CommandApp();
 
-hostBuilder.ConfigureServices(services =>
+AnsiConsole.Clear();
+
+var figlet = new FigletText("NABS Migrations")
+    .Centered()
+    .Color(Color.Blue);
+AnsiConsole.Write(figlet);
+
+app.Configure(config =>
 {
-    services.Scan();
+    config.SetApplicationName("nabs-migrations");
 
-    services.AddSingleton<MainViewModel>();
+    config.AddCommand<ScanCommand>("scan")
+        .WithDescription("Scans a solution for EF Core migrations and displays them in a tree view.")
+        .WithExample(["scan"])
+        .WithExample(["scan", "./MySolution"]);
+
+    config.AddCommand<MigrateCommand>("migrate")
+        .WithDescription("Scans a solution for EF Core migrations and displays them in a tree view.")
+        .WithExample(["migrate", "./MySolution"]);
+
+    config.AddCommand<MigrateCommand>("reset")
+        .WithDescription("Resets the database. This is a destructive operation.")
+        .WithExample(["reset", "./MySolution"]);
 });
 
-hostBuilder.UseRazorConsole<Main>();
+app.SetDefaultCommand<ScanCommand>();
+//app.SetDefaultCommand<MigrateCommand>();
+//app.SetDefaultCommand<ResetDbCommand>();
 
-await hostBuilder.RunConsoleAsync();
-
-//    // Check if there are any migrations at all
-//    var allMigrations = dbContext.Database.GetMigrations();
-//    if (!allMigrations.Any())
-//    {
-//        Console.WriteLine("No migrations found in the assembly. Creating InitialCreate ...");
-//        await dbContext.AddMigration("InitialCreate");
-//        return;
-//    }
-//}
-
-//await using (var serviceScope = serviceProvider.CreateAsyncScope())
-//{
-//    await using var dbContext = serviceScope.ServiceProvider.GetRequiredService<TestDbContext>();
-
-//    var hasPendingModelChanges = dbContext.Database.HasPendingModelChanges();
-//    if (hasPendingModelChanges)
-//    {
-//        var pendingModelChanges = dbContext.GetPendingModelChanges();
-//        foreach (var change in pendingModelChanges)
-//        {
-//            Console.WriteLine($"Found pending model change: {change}");
-//        }
-//    }
-//}
-
-//await using (var serviceScope = serviceProvider.CreateAsyncScope())
-//{
-//    await using var dbContext = serviceScope.ServiceProvider.GetRequiredService<TestDbContext>();
-
-//    var allMigrations = dbContext.Database.GetMigrations();
-//    foreach (var migration in allMigrations)
-//    {
-//        Console.WriteLine($"Found migration: {migration}");
-//    }
-
-//    var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync();
-//    foreach (var migration in appliedMigrations)
-//    {
-//        Console.WriteLine($"Applied migration: {migration}");
-//    }
-
-
-
-//    var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
-//    if (pendingMigrations.Any())
-//    {
-//        Console.WriteLine("Applying pending migrations...");
-//        await dbContext.Database.MigrateAsync();
-//        Console.WriteLine("Migrations applied successfully.");
-//    }
-//    else
-//    {
-//        Console.WriteLine("No pending migrations found.");
-//    }
-
-//}
+await app.RunAsync(args);

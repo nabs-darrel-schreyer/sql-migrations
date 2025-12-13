@@ -17,6 +17,10 @@
 # Mono auto generated files
 mono_crash.*
 
+*/nupkg
+*/nupkg/
+*/nupkg/*
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

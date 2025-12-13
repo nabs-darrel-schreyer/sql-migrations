@@ -66,6 +66,6 @@ public sealed class MainViewModel(IServiceProvider serviceProvider)
         {
             return;
         }
-        dbContext.Database.Migrate(migrationItem.FullName);
+        dbContext.Database.Migrate(migrationItem.Name);
     }
 }

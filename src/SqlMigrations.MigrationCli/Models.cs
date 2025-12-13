@@ -19,7 +19,7 @@ public sealed record DbContextItem
     public Guid Id { get; } = Guid.NewGuid();
     public required Type DbContextType { get; init; }
     public required Type DbContextFactoryType { get; init; }
-    public List<MigrationItem> Migrations { get; } = [];
+    public List<MigrationItem> MigrationItems { get; } = [];
 }
 
 public sealed record MigrationItem
@@ -27,5 +27,7 @@ public sealed record MigrationItem
     public Guid Id { get; } = Guid.NewGuid();
     public string FullName { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
-    public DateTime AppliedOn { get; init; }
+    public string Status { get; init; } = string.Empty;
+    public DateTime CreatedOn { get; init; }
+    public DateTime? AppliedOn { get; set; }
 }
