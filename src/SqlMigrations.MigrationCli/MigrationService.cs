@@ -1,24 +1,24 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using System.Diagnostics;
-
-namespace SqlMigrations.MigrationCli;
+﻿namespace SqlMigrations.MigrationCli;
 
 internal static class MigrationService
 {
-    public static IReadOnlyList<MigrationOperation> GetPendingModelChanges<TDbContext>(this TDbContext dbContext)
+    public static IReadOnlyList<MigrationOperation> GetOutstandingModelChanges<TDbContext>(this TDbContext dbContext)
     where TDbContext : DbContext
     {
+        var sourceSnapshot = dbContext.GetService<IMigrationsAssembly>().ModelSnapshot;
+        var runtimeInitializer = dbContext.GetService<IModelRuntimeInitializer>();
+        
+        IRelationalModel? source = null;
+        if (sourceSnapshot?.Model != null)
+        {
+            var initializedModel = runtimeInitializer.Initialize(sourceSnapshot.Model, designTime: true, validationLogger: null);
+            source = initializedModel.GetRelationalModel();
+        }
+
         var designTimeModel = dbContext.GetService<IDesignTimeModel>().Model;
-
-        var modelDiffer = dbContext.GetService<IMigrationsModelDiffer>();
-
-        var source = dbContext.GetService<IMigrationsAssembly>().ModelSnapshot?.Model.GetRelationalModel();
         var target = designTimeModel.GetRelationalModel();
 
+        var modelDiffer = dbContext.GetService<IMigrationsModelDiffer>();
         var changes = modelDiffer.GetDifferences(source, target);
         return changes;
     }
@@ -71,5 +71,5 @@ internal static class MigrationService
         Console.WriteLine($"{name} migration {command} completed:\n" + output);
     }
 
-    
+
 }

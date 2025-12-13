@@ -1,0 +1,14 @@
+﻿global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.Design;
+global using Microsoft.EntityFrameworkCore.Infrastructure;
+global using Microsoft.EntityFrameworkCore.Metadata;
+global using Microsoft.EntityFrameworkCore.Migrations;
+global using Microsoft.EntityFrameworkCore.Migrations.Operations;
+global using Spectre.Console;
+global using Spectre.Console.Cli;
+global using SqlMigrations.MigrationCli;
+global using SqlMigrations.MigrationCli.Commands;
+global using System.ComponentModel;
+global using System.Diagnostics;
+global using System.Globalization;
+global using System.Reflection;

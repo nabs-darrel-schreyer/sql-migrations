@@ -1,6 +1,4 @@
-﻿using Spectre.Console;
-
-namespace SqlMigrations.MigrationCli;
+﻿namespace SqlMigrations.MigrationCli;
 
 internal static class MigrationsTree
 {
@@ -11,14 +9,18 @@ internal static class MigrationsTree
 
         foreach (var projectItem in ProjectScanner.Solution!.ProjectItems)
         {
-            var projectNode = root.AddNode($"{projectItem.ProjectFile.Name.Replace(".csproj", "")}");
+            var projectNode = root
+                .AddNode($"{projectItem.ProjectFile.Name.Replace(".csproj", "")}");
 
             foreach (var dbContextItem in projectItem.DbContextItems)
             {
-                var dbContextNode = projectNode.AddNode(dbContextItem.DbContextType.Name);
+                var dbContextNode = projectNode
+                    .AddNode(dbContextItem.DbContextType.Name);
 
                 var migrationTable = new Table()
-                        .AddColumns("Migration Name", "Status", "Created On").HideHeaders();
+                    .AddColumns("Migration Name", "Status", "Created On")
+                    .HideHeaders();
+
                 foreach (var migrationItem in dbContextItem.MigrationItems)
                 {
                     var statusColour = migrationItem.Status switch
@@ -30,13 +32,29 @@ internal static class MigrationsTree
                     };
                     migrationTable
                         .AddRow(
-                            $"[{statusColour}]{migrationItem.Name}[/]", 
-                            $"[{statusColour}]{migrationItem.Status}[/]", 
+                            $"[{statusColour}]{migrationItem.Name}[/]",
+                            $"[{statusColour}]{migrationItem.Status}[/]",
                             $"{migrationItem.CreatedOn}");
 
                 }
-                dbContextNode.AddNode(migrationTable);
+
+                dbContextNode
+                    .AddNode(migrationTable);
+
+                if(dbContextItem.OutstandingChanges.Any())
+                {
+                    var outstandingMigrationsNode = dbContextNode
+                        .AddNode("[red]Outstanding Migrations[/]");
+                    foreach (var outstandingMigration in dbContextItem.OutstandingChanges)
+                    {
+                        var statusColour = outstandingMigration.IsDestructive ? "red" : "yellow";
+                        outstandingMigrationsNode
+                            .AddNode($"[{statusColour}]{outstandingMigration.Description}[/]");
+                    }
+                }
             }
+
+            
         }
 
         return root;

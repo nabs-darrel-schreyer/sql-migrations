@@ -1,8 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Spectre.Console;
-using Spectre.Console.Cli;
-
-var app = new CommandApp();
+﻿var app = new CommandApp();
 
 AnsiConsole.Clear();
 
@@ -22,15 +18,22 @@ app.Configure(config =>
 
     config.AddCommand<MigrateCommand>("migrate")
         .WithDescription("Scans a solution for EF Core migrations and displays them in a tree view.")
+        .WithExample(["migrate"])
         .WithExample(["migrate", "./MySolution"]);
 
-    config.AddCommand<MigrateCommand>("reset")
+    config.AddCommand<ResetCommand>("reset-db")
         .WithDescription("Resets the database. This is a destructive operation.")
-        .WithExample(["reset", "./MySolution"]);
+        .WithExample(["reset-db"])
+        .WithExample(["reset-db", "./MySolution"]);
+
+    config.AddCommand<AddMigrationCommand>("add-migration")
+        .WithDescription("Adds a new migration.")
+        .WithExample(["add-migration"])
+        .WithExample(["add-migration", "./MySolution"]);
 });
 
 app.SetDefaultCommand<ScanCommand>();
 //app.SetDefaultCommand<MigrateCommand>();
-//app.SetDefaultCommand<ResetDbCommand>();
+//app.SetDefaultCommand<DropDbCommand>();
 
 await app.RunAsync(args);

@@ -20,6 +20,7 @@ public sealed record DbContextItem
     public required Type DbContextType { get; init; }
     public required Type DbContextFactoryType { get; init; }
     public List<MigrationItem> MigrationItems { get; } = [];
+    public List<OutstandingChangeItem> OutstandingChanges { get; } = [];
 }
 
 public sealed record MigrationItem
@@ -30,4 +31,11 @@ public sealed record MigrationItem
     public string Status { get; init; } = string.Empty;
     public DateTime CreatedOn { get; init; }
     public DateTime? AppliedOn { get; set; }
+}
+
+public sealed record OutstandingChangeItem
+{
+    public Guid Id { get; } = Guid.NewGuid();
+    public string Description { get; init; } = string.Empty;
+    public bool IsDestructive { get; init; }
 }

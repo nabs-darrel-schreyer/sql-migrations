@@ -1,8 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Spectre.Console;
-using Spectre.Console.Cli;
-using SqlMigrations.MigrationCli;
-using System.ComponentModel;
+﻿namespace SqlMigrations.MigrationCli.Commands;
 
 internal sealed class MigrateCommand : Command<MigrateCommand.MigrateSettings>
 {
@@ -19,34 +15,58 @@ internal sealed class MigrateCommand : Command<MigrateCommand.MigrateSettings>
 
     protected override int Execute(CommandContext context, MigrateSettings settings, CancellationToken cancellationToken)
     {
+        var rule = new Rule("[yellow]MIGRATE DATABASES[/]");
+        rule.LeftJustified();
+        AnsiConsole.Write(rule);
+
         ProjectScanner.Scan(settings.ScanPath);
 
-        MigrationsTree.Init();
-
-        AnsiConsole.Live(new Panel(""))
-            .Start(ctx =>
-            {
-                var dbContextItems = ProjectScanner
+        var dbContextItems = ProjectScanner
                     .Solution!
                     .ProjectItems
                     .SelectMany(p => p.DbContextItems)
                     .ToList();
 
-                foreach (var dbContextItem in dbContextItems)
-                {
-                    using var dbContext = dbContextItem.CreateDbContext();
+        foreach (var dbContextItem in dbContextItems)
+        {
+            using var dbContext = dbContextItem.CreateDbContext()!;
+            var databaseName = dbContext.Database.GetDbConnection().Database;
 
-                    foreach (var pendingMigration in dbContext.Database.GetPendingMigrations())
+            var confirmation = AnsiConsole.Prompt(
+                new TextPrompt<bool>($"Are you sure you want to [yellow]MIGRATE[/] the database [blue]{databaseName}[/]?")
+                    .AddChoice(true)
+                    .AddChoice(false)
+                    .DefaultValue(false)
+                    .WithConverter(choice => choice ? "y" : "n"));
+
+            if (!confirmation)
+            {
+                AnsiConsole.MarkupLine($"[yellow]Skipping DB migration for:[/] [blue]{databaseName}[/]");
+                continue;
+            }
+
+            foreach (var pendingMigration in dbContext.Database.GetPendingMigrations())
+            {
+                AnsiConsole.Status()
+                    .Spinner(Spinner.Known.Dots)
+                    .Start($"[green]Migrating DB:[/] [blue]{databaseName}[/]", ctx =>
                     {
-                        AnsiConsole.MarkupLine($"[yellow]Pending migration found:[/] [blue]{pendingMigration}[/]");
-                        dbContext.Database.Migrate(pendingMigration);
-                    }
-                }
+                        try
+                        {
+                            dbContext.Database.Migrate(pendingMigration);
+                            AnsiConsole.MarkupLine($"[green]Successfully migrated DB:[/] [blue]{databaseName}[/]");
+                        }
+                        catch (Exception ex)
+                        {
+                            AnsiConsole.MarkupLine($"[yellow]DB did not exist or could not be migrated:[/] [blue]{databaseName}[/]");
+                            AnsiConsole.Markup(ex.StackTrace ?? string.Empty);
+                        }
+                    });
+            }
+        }
 
-                //Thread.Sleep(500);
-                ctx.Refresh();
-            });
-        
+        MigrationsTree.Init();
+
         return 0;
     }
 }

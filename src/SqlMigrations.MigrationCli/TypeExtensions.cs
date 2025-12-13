@@ -1,6 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-
-namespace SqlMigrations.MigrationCli;
+﻿namespace SqlMigrations.MigrationCli;
 
 internal static class TypeExtensions
 {
@@ -27,5 +25,28 @@ internal static class TypeExtensions
         {
             return null;
         }
+    }
+
+    public static async Task<bool> RunMigration(this ProjectItem projectItem, string name, string command)
+    {
+        var projectDirectory = projectItem.ProjectFile.Directory!;
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"ef migrations {command} {name}",
+            WorkingDirectory = projectDirectory.FullName,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+
+        using var process = Process.Start(startInfo)!;
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        return process.ExitCode == 0;
     }
 }

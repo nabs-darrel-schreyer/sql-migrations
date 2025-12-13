@@ -1,8 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Design;
-using System.Globalization;
-using System.Reflection;
-
 namespace SqlMigrations.MigrationCli;
 
 public static class ProjectScanner
@@ -131,6 +126,26 @@ public static class ProjectScanner
             dbContextItem.MigrationItems.Add(migrationItem);
         }
 
+        var outstandingChanges = dbContext.GetOutstandingModelChanges();
+        foreach (MigrationOperation outstandingChange in outstandingChanges)
+        {
+            string description = outstandingChange switch
+            {
+                AddColumnOperation addColumn => $"Add Column '{addColumn.Name}' to Table '{addColumn.Table}'",
+                DropColumnOperation dropColumn => $"Drop Column '{dropColumn.Name}' from Table '{dropColumn.Table}'",
+                AlterColumnOperation alterColumn => $"Alter Column '{alterColumn.Name}' in Table '{alterColumn.Table}'",
+                CreateTableOperation createTable => $"Create Table '{createTable.Name}'",
+                DropTableOperation dropTable => $"Drop Table '{dropTable.Name}'",
+                _ => outstandingChange.ToString() ?? "Unknown Operation"
+            };
+            
+            var outstandingChangeItem = new OutstandingChangeItem
+            {
+                Description = description,
+                IsDestructive = outstandingChange.IsDestructiveChange
+            };
+            dbContextItem.OutstandingChanges.Add(outstandingChangeItem);
+        }
     }
 
     private static Assembly? LoadProjectAssembly(this FileInfo projectFile)
