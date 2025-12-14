@@ -29,6 +29,23 @@ public static class ProjectScanner
             .EnumerateFiles()
             .FirstOrDefault(f => string.Equals(f.Extension, ".sln", StringComparison.OrdinalIgnoreCase)
                              || string.Equals(f.Extension, ".slnx", StringComparison.OrdinalIgnoreCase));
+
+        if (solutionFile == null)
+        {
+            while (solutionDirectory.Parent != null)
+            {
+                solutionDirectory = solutionDirectory.Parent;
+                solutionFile = solutionDirectory
+                    .EnumerateFiles()
+                    .FirstOrDefault(f => string.Equals(f.Extension, ".sln", StringComparison.OrdinalIgnoreCase)
+                                     || string.Equals(f.Extension, ".slnx", StringComparison.OrdinalIgnoreCase));
+                if (solutionFile != null)
+                {
+                    break;
+                }
+            }
+        }
+
         if (solutionFile == null)
         {
             return;

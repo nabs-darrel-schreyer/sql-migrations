@@ -30,6 +30,11 @@ app.Configure(config =>
         .WithDescription("Adds a new migration.")
         .WithExample(["add-migration"])
         .WithExample(["add-migration", "./MySolution"]);
+
+    config.AddCommand<RemoveMigrationCommand>("remove-migration")
+        .WithDescription("Remove a new migration.")
+        .WithExample(["remove-migration"])
+        .WithExample(["remove-migration", "./MySolution"]);
 });
 
 app.SetDefaultCommand<ScanCommand>();
