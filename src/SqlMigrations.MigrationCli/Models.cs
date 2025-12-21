@@ -11,16 +11,18 @@ public sealed record ProjectItem
 {
     public Guid Id { get; } = Guid.NewGuid();
     public required FileInfo ProjectFile { get; init; }
-    public List<DbContextItem> DbContextItems { get; } = [];
+    public List<DbContextFactoryItem> DbContextFactoryItems { get; } = [];
 }
 
-public sealed record DbContextItem
+public sealed record DbContextFactoryItem
 {
     public Guid Id { get; } = Guid.NewGuid();
-    public required Type DbContextType { get; init; }
-    public required Type DbContextFactoryType { get; init; }
+    public required string AssemblyPath { get; init; }
+    public required string DbContextFactoryTypeName { get; init; }
+    public required string DbContextTypeName { get; init; }
+    public required ProjectItem ProjectItem { get; init; }
     public List<MigrationItem> MigrationItems { get; } = [];
-    public List<OutstandingChangeItem> OutstandingChanges { get; } = [];
+    public List<PendingModelChangeItem> PendingModelChanges { get; } = [];
 }
 
 public sealed record MigrationItem
@@ -33,7 +35,7 @@ public sealed record MigrationItem
     public DateTime? AppliedOn { get; set; }
 }
 
-public sealed record OutstandingChangeItem
+public sealed record PendingModelChangeItem
 {
     public Guid Id { get; } = Guid.NewGuid();
     public string Description { get; init; } = string.Empty;

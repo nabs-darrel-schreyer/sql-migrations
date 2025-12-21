@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace SqlMigrations.Persistence.Migrations
+namespace SqlMigrations.DataMigrations.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
@@ -20,7 +20,9 @@ namespace SqlMigrations.Persistence.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    Username = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    Username = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    FirstName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    LastName = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {

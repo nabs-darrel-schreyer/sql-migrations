@@ -1,35 +1,31 @@
 ﻿namespace SqlMigrations.MigrationCli.Commands;
 
-internal sealed class MigrateCommand : Command<MigrateCommand.MigrateSettings>
+internal sealed class MigrateCommand : Command<NabsMigrationsSettings>
 {
-    public sealed class MigrateSettings : CommandSettings
+    public class MigrateCommandSettings: NabsMigrationsSettings
     {
-        [Description("Path to scan. Defaults to current directory.")]
-        [CommandArgument(0, "[searchPath]")]
-        public string? ScanPath { get; init; }
-
-        [Description("Filter by project name.")]
-        [CommandOption("-a|--action")]
-        public string? Action { get; init; }
+        // Additional settings specific to the Migrate command can be added here in the future
+        
     }
 
-    protected override int Execute(CommandContext context, MigrateSettings settings, CancellationToken cancellationToken)
+    protected override int Execute(CommandContext context, NabsMigrationsSettings settings, CancellationToken cancellationToken)
     {
+
         var rule = new Rule("[yellow]MIGRATE DATABASES[/]");
         rule.LeftJustified();
         AnsiConsole.Write(rule);
 
-        ProjectScanner.Scan(settings.ScanPath);
+        SolutionScanner.Scan(settings.ScanPath);
 
-        var dbContextItems = ProjectScanner
+        var dbContextItems = SolutionScanner
                     .Solution!
                     .ProjectItems
-                    .SelectMany(p => p.DbContextItems)
+                    .SelectMany(p => p.DbContextFactoryItems)
                     .ToList();
 
         foreach (var dbContextItem in dbContextItems)
         {
-            using var dbContext = dbContextItem.CreateDbContext()!;
+            using var dbContext = SolutionScanner.CreateDbContext(dbContextItem)!;
             var databaseName = dbContext.Database.GetDbConnection().Database;
 
             var confirmation = AnsiConsole.Prompt(
@@ -67,63 +63,8 @@ internal sealed class MigrateCommand : Command<MigrateCommand.MigrateSettings>
 
         MigrationsTree.Init();
 
+        SolutionScanner.Unload();
+
         return 0;
     }
 }
-
-//    // Check if there are any migrations at all
-//    var allMigrations = dbContext.Database.GetMigrations();
-//    if (!allMigrations.Any())
-//    {
-//        Console.WriteLine("No migrations found in the assembly. Creating InitialCreate ...");
-//        await dbContext.AddMigration("InitialCreate");
-//        return;
-//    }
-//}
-
-//await using (var serviceScope = serviceProvider.CreateAsyncScope())
-//{
-//    await using var dbContext = serviceScope.ServiceProvider.GetRequiredService<TestDbContext>();
-
-//    var hasPendingModelChanges = dbContext.Database.HasPendingModelChanges();
-//    if (hasPendingModelChanges)
-//    {
-//        var pendingModelChanges = dbContext.GetPendingModelChanges();
-//        foreach (var change in pendingModelChanges)
-//        {
-//            Console.WriteLine($"Found pending model change: {change}");
-//        }
-//    }
-//}
-
-//await using (var serviceScope = serviceProvider.CreateAsyncScope())
-//{
-//    await using var dbContext = serviceScope.ServiceProvider.GetRequiredService<TestDbContext>();
-
-//    var allMigrations = dbContext.Database.GetMigrations();
-//    foreach (var migration in allMigrations)
-//    {
-//        Console.WriteLine($"Found migration: {migration}");
-//    }
-
-//    var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync();
-//    foreach (var migration in appliedMigrations)
-//    {
-//        Console.WriteLine($"Applied migration: {migration}");
-//    }
-
-
-
-//    var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
-//    if (pendingMigrations.Any())
-//    {
-//        Console.WriteLine("Applying pending migrations...");
-//        await dbContext.Database.MigrateAsync();
-//        Console.WriteLine("Migrations applied successfully.");
-//    }
-//    else
-//    {
-//        Console.WriteLine("No pending migrations found.");
-//    }
-
-//}

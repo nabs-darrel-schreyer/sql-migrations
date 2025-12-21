@@ -1,27 +1,16 @@
 ﻿namespace SqlMigrations.MigrationCli.Commands;
 
-internal sealed class RemoveMigrationCommand : AsyncCommand<RemoveMigrationCommand.RemoveMigrationSettings>
+internal sealed class RemoveMigrationCommand : AsyncCommand<NabsMigrationsSettings>
 {
-    public sealed class RemoveMigrationSettings : CommandSettings
-    {
-        [Description("Path to scan. Defaults to current directory.")]
-        [CommandArgument(0, "[searchPath]")]
-        public string? ScanPath { get; init; }
-
-        [Description("The name of the migration to remove.")]
-        [CommandOption("-m|--migration-name")]
-        public string? MigrationName { get; init; }
-    }
-
-    protected override async Task<int> ExecuteAsync(CommandContext context, RemoveMigrationSettings settings, CancellationToken cancellationToken)
+    protected override async Task<int> ExecuteAsync(CommandContext context, NabsMigrationsSettings settings, CancellationToken cancellationToken)
     {
         var rule = new Rule("[yellow]REMOVE MIGRATIONS[/]");
         rule.LeftJustified();
         AnsiConsole.Write(rule);
 
-        ProjectScanner.Scan(settings.ScanPath);
+        SolutionScanner.Scan(settings.ScanPath);
 
-        var projectItems = ProjectScanner
+        var projectItems = SolutionScanner
                     .Solution!
                     .ProjectItems
                     .ToList();
@@ -30,35 +19,43 @@ internal sealed class RemoveMigrationCommand : AsyncCommand<RemoveMigrationComma
         {
             var projectName = projectItem.ProjectFile.Name.Replace(".csproj", "");
 
-            var confirmation = AnsiConsole.Prompt(
-                new TextPrompt<bool>($"Are you sure you want to [red]REMOVE A MIGRATION[/] to project: [blue]{projectName}[/]?")
-                    .AddChoice(true)
-                    .AddChoice(false)
-                    .DefaultValue(false)
-                    .WithConverter(choice => choice ? "y" : "n"));
-
-            if (!confirmation)
+            foreach (var dbContextFactoryItem in projectItem.DbContextFactoryItems)
             {
-                AnsiConsole.MarkupLine($"[yellow]Skipping REMOVE MIGRATION for:[/] [blue]{projectName}[/]");
-                continue;
-            }
+                var dbContextName = dbContextFactoryItem.DbContextTypeName.Split('.').Last();
 
+                var confirmation = AnsiConsole.Prompt(
+                    new TextPrompt<bool>($"Are you sure you want to [red]REMOVE A MIGRATION[/] from [blue]{dbContextName}[/]?")
+                        .AddChoice(true)
+                        .AddChoice(false)
+                        .DefaultValue(false)
+                        .WithConverter(choice => choice ? "y" : "n"));
 
-            await AnsiConsole.Status()
-                .Spinner(Spinner.Known.Dots)
-                .StartAsync($"[green]Removing Migration to:[/] [blue]{projectName}[/]", async ctx =>
+                if (!confirmation)
                 {
-                    try
+                    AnsiConsole.MarkupLine($"[yellow]Skipping REMOVE MIGRATION from[/] [blue]{dbContextName}[/]");
+                    continue;
+                }
+
+                await AnsiConsole.Status()
+                    .Spinner(Spinner.Known.Dots)
+                    .StartAsync($"[green]Removing Migration from[/] [blue]{dbContextName}[/]", async ctx =>
                     {
-                        await projectItem.RunMigration(projectName, "remove");
-                        AnsiConsole.MarkupLine($"[green]Successfully remove new migration from[/] [blue]{projectName}[/]");
-                    }
-                    catch (Exception ex)
-                    {
-                        AnsiConsole.MarkupLine($"[red]Failed to remove migration from[/] [blue]{projectName}[/]");
-                        AnsiConsole.Write(ex.StackTrace!);
-                    }
-                });
+                        try
+                        {
+                            await ProcessHelpers.RunProcessAsync(
+                                "dotnet",
+                                $"ef migrations remove --context {dbContextName} --verbose",
+                                projectItem.ProjectFile.Directory!.FullName);
+
+                            AnsiConsole.MarkupLine($"[green]Successfully removed last migration from[/] [blue]{dbContextName}[/]");
+                        }
+                        catch (Exception ex)
+                        {
+                            AnsiConsole.MarkupLine($"[red]Failed to remove migration from[/] [blue]{dbContextName}[/]");
+                            AnsiConsole.Write(ex.StackTrace!);
+                        }
+                    });
+            }
         }
 
         return 0;

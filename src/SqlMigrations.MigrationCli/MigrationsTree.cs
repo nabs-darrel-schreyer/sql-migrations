@@ -2,59 +2,61 @@
 
 internal static class MigrationsTree
 {
-    public static Tree Init()
+    public static Tree Init(TreeOutputTypes treeOutputTypes = TreeOutputTypes.Migrations)
     {
-        var root = new Tree($"{ProjectScanner.Solution!.SolutionFile.Name} Migrations")
+        var root = new Tree($"{SolutionScanner.Solution!.SolutionFile.Name} Migrations")
             .Guide(TreeGuide.Line);
 
-        foreach (var projectItem in ProjectScanner.Solution!.ProjectItems)
+        foreach (var projectItem in SolutionScanner.Solution!.ProjectItems)
         {
             var projectNode = root
                 .AddNode($"{projectItem.ProjectFile.Name.Replace(".csproj", "")}");
 
-            foreach (var dbContextItem in projectItem.DbContextItems)
+            foreach (var dbContextFactoryItem in projectItem.DbContextFactoryItems)
             {
                 var dbContextNode = projectNode
-                    .AddNode(dbContextItem.DbContextType.Name);
+                    .AddNode($"{dbContextFactoryItem.DbContextTypeName}");
 
-                var migrationTable = new Table()
-                    .AddColumns("Migration Name", "Status", "Created On")
-                    .HideHeaders();
-
-                foreach (var migrationItem in dbContextItem.MigrationItems)
+                if (treeOutputTypes == TreeOutputTypes.Migrations
+                     && dbContextFactoryItem.MigrationItems.Any())
                 {
-                    var statusColour = migrationItem.Status switch
-                    {
-                        "Pending" => "yellow",
-                        "Applied" => "green",
-                        "Failed" => "red",
-                        _ => "white"
-                    };
-                    migrationTable
-                        .AddRow(
-                            $"[{statusColour}]{migrationItem.Name}[/]",
-                            $"[{statusColour}]{migrationItem.Status}[/]",
-                            $"{migrationItem.CreatedOn}");
+                    var migrationTable = new Table()
+                        .AddColumns("Migration Name", "Status", "Created On")
+                        .HideHeaders();
 
+                    foreach (var migrationItem in dbContextFactoryItem.MigrationItems)
+                    {
+                        var statusColour = migrationItem.Status switch
+                        {
+                            "Pending" => "yellow",
+                            "Applied" => "green",
+                            "Failed" => "red",
+                            _ => "white"
+                        };
+                        migrationTable
+                            .AddRow(
+                                $"[{statusColour}]{migrationItem.Name}[/]",
+                                $"[{statusColour}]{migrationItem.Status}[/]",
+                                $"{migrationItem.CreatedOn}");
+
+                    }
+
+                    dbContextNode
+                        .AddNode(migrationTable);
                 }
-
-                dbContextNode
-                    .AddNode(migrationTable);
-
-                if(dbContextItem.OutstandingChanges.Any())
+                else if (treeOutputTypes == TreeOutputTypes.PendingModelChanges
+                    && dbContextFactoryItem.PendingModelChanges.Any())
                 {
-                    var outstandingMigrationsNode = dbContextNode
-                        .AddNode("[red]Outstanding Migrations[/]");
-                    foreach (var outstandingMigration in dbContextItem.OutstandingChanges)
+                    var pendingModelChangeNode = dbContextNode
+                        .AddNode("[red]Pending Model Changes[/]");
+                    foreach (var pendingModelChange in dbContextFactoryItem.PendingModelChanges)
                     {
-                        var statusColour = outstandingMigration.IsDestructive ? "red" : "yellow";
-                        outstandingMigrationsNode
-                            .AddNode($"[{statusColour}]{outstandingMigration.Description}[/]");
+                        var statusColour = pendingModelChange.IsDestructive ? "red" : "yellow";
+                        pendingModelChangeNode
+                            .AddNode($"[{statusColour}]{pendingModelChange.Description}[/]");
                     }
                 }
             }
-
-            
         }
 
         return root;

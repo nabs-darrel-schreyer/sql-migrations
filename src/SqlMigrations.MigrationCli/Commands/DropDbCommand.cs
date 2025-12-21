@@ -1,31 +1,24 @@
 ﻿namespace SqlMigrations.MigrationCli.Commands;
 
-internal sealed class ResetCommand : Command<ResetCommand.ResetDbSettings>
+internal sealed class DropDbCommand : Command<NabsMigrationsSettings>
 {
-    public sealed class ResetDbSettings : CommandSettings
-    {
-        [Description("Path to scan. Defaults to current directory.")]
-        [CommandArgument(0, "[searchPath]")]
-        public string? ScanPath { get; init; }
-    }
-
-    protected override int Execute(CommandContext context, ResetDbSettings settings, CancellationToken cancellationToken)
+    protected override int Execute(CommandContext context, NabsMigrationsSettings settings, CancellationToken cancellationToken)
     {
         var rule = new Rule("[red]DROP DATABASE[/]");
         rule.LeftJustified();
         AnsiConsole.Write(rule);
 
-        ProjectScanner.Scan(settings.ScanPath);
+        SolutionScanner.Scan(settings.ScanPath);
 
-        var dbContextItems = ProjectScanner
+        var dbContextItems = SolutionScanner
                     .Solution!
                     .ProjectItems
-                    .SelectMany(p => p.DbContextItems)
+                    .SelectMany(p => p.DbContextFactoryItems)
                     .ToList();
 
         foreach (var dbContextItem in dbContextItems)
         {
-            using var dbContext = dbContextItem.CreateDbContext()!;
+            using var dbContext = SolutionScanner.CreateDbContext(dbContextItem)!;
             var databaseName = dbContext.Database.GetDbConnection().Database;
 
             var confirmation = AnsiConsole.Prompt(
@@ -56,6 +49,8 @@ internal sealed class ResetCommand : Command<ResetCommand.ResetDbSettings>
                     }
                 });
         }
+
+        SolutionScanner.Unload();
 
         return 0;
     }
