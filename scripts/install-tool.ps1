@@ -8,7 +8,7 @@ param(
 # Get the root directory (assumes script is in scripts folder)
 $rootDir = Split-Path -Parent $PSScriptRoot
 $projectPath = Join-Path $rootDir "src\SqlMigrations.MigrationCli\SqlMigrations.MigrationCli.csproj"
-$toolCommandName = "NabsMigrations"
+$toolCommandName = "nabs-migrations"
 
 Write-Host "Packing SqlMigrations.MigrationCli..." -ForegroundColor Cyan
 

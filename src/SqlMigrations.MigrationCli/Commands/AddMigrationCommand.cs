@@ -1,13 +1,111 @@
 ﻿namespace SqlMigrations.MigrationCli.Commands;
 
-internal sealed class AddMigrationCommand : AsyncCommand<NabsMigrationsSettings>
+public class AddMigrationSettings : NabsMigrationsSettings
 {
-    protected override async Task<int> ExecuteAsync(CommandContext context, NabsMigrationsSettings settings, CancellationToken cancellationToken)
+    [Description("Name of the DbContext to use for the migration. Required when using the command line.")]
+    [CommandOption("--context")]
+    public string? Context { get; init; }
+
+    [Description("Name of the migration to create. Required when using the command line.")]
+    [CommandOption("--migrationName")]
+    public string? MigrationName { get; init; }
+
+    /// <summary>
+    /// Determines if the command should run in interactive mode.
+    /// Interactive mode is used when neither Context nor MigrationName are provided.
+    /// </summary>
+    public bool IsInteractiveMode => string.IsNullOrWhiteSpace(Context) && string.IsNullOrWhiteSpace(MigrationName);
+}
+
+internal sealed class AddMigrationCommand : AsyncCommand<AddMigrationSettings>
+{
+    protected override async Task<int> ExecuteAsync(CommandContext context, AddMigrationSettings settings, CancellationToken cancellationToken)
     {
         var rule = new Rule("[yellow]ADD NEW MIGRATIONS[/]");
         rule.LeftJustified();
         AnsiConsole.Write(rule);
 
+        // Validate command line mode settings
+        if (!settings.IsInteractiveMode)
+        {
+            if (string.IsNullOrWhiteSpace(settings.Context))
+            {
+                AnsiConsole.MarkupLine("[red]Error: --context is required when using command line mode.[/]");
+                return 1;
+            }
+            if (string.IsNullOrWhiteSpace(settings.MigrationName))
+            {
+                AnsiConsole.MarkupLine("[red]Error: --migrationName is required when using command line mode.[/]");
+                return 1;
+            }
+
+            return await ExecuteCommandLineModeAsync(settings, cancellationToken);
+        }
+
+        return await ExecuteInteractiveModeAsync(settings, cancellationToken);
+    }
+
+    private async Task<int> ExecuteCommandLineModeAsync(AddMigrationSettings settings, CancellationToken cancellationToken)
+    {
+        SolutionScanner.Scan(settings.ScanPath);
+
+        var projectItems = SolutionScanner
+            .Solution!
+            .ProjectItems
+            .ToList();
+
+        // Find the specified DbContext
+        DbContextFactoryItem? targetDbContextItem = null;
+        ProjectItem? targetProjectItem = null;
+
+        foreach (var projectItem in projectItems)
+        {
+            foreach (var dbContextFactoryItem in projectItem.DbContextFactoryItems)
+            {
+                var contextName = dbContextFactoryItem.DbContextTypeName.Split('.').Last();
+                if (contextName.Equals(settings.Context, StringComparison.OrdinalIgnoreCase))
+                {
+                    targetDbContextItem = dbContextFactoryItem;
+                    targetProjectItem = projectItem;
+                    break;
+                }
+            }
+            if (targetDbContextItem != null) break;
+        }
+
+        if (targetDbContextItem == null || targetProjectItem == null)
+        {
+            AnsiConsole.MarkupLine($"[red]Error: DbContext '{settings.Context}' was not found in the solution.[/]");
+            return 1;
+        }
+
+        var dbContextName = targetDbContextItem.DbContextTypeName.Split('.').Last();
+
+        await AnsiConsole.Status()
+            .Spinner(Spinner.Known.Dots)
+            .StartAsync($"[green]Adding migration[/] [blue]{settings.MigrationName}[/] to [blue]{dbContextName}[/]", async ctx =>
+            {
+                try
+                {
+                    await ProcessHelpers.RunProcessAsync(
+                        "dotnet",
+                        $"ef migrations add {settings.MigrationName} --context {dbContextName} --output-dir Migrations/{dbContextName}Migrations --verbose",
+                        targetProjectItem.ProjectFile.Directory!.FullName);
+
+                    AnsiConsole.MarkupLine($"[green]Successfully added new migration:[/] [blue]{settings.MigrationName}[/]");
+                }
+                catch (Exception ex)
+                {
+                    AnsiConsole.MarkupLine($"[red]Failed to add migration:[/] [blue]{settings.MigrationName}[/]");
+                    AnsiConsole.Markup(ex.StackTrace!);
+                }
+            });
+
+        return 0;
+    }
+
+    private async Task<int> ExecuteInteractiveModeAsync(AddMigrationSettings settings, CancellationToken cancellationToken)
+    {
         SolutionScanner.Scan(settings.ScanPath);
 
         var projectItems = SolutionScanner
@@ -83,7 +181,7 @@ internal sealed class AddMigrationCommand : AsyncCommand<NabsMigrationsSettings>
                         {
                             await ProcessHelpers.RunProcessAsync(
                                 "dotnet",
-                                $"ef migrations add {migrationName} --context {dbContextName} --output-dir Migrations/{dbContextName}Migrations --verbose",
+                                $"ef migrations add {dbContextName}_{migrationName} --context {dbContextName} --output-dir Migrations/{dbContextName}Migrations --verbose",
                                 projectItem.ProjectFile.Directory!.FullName);
 
                             AnsiConsole.MarkupLine($"[green]Successfully added new migration:[/] [blue]{migrationName}[/]");

@@ -14,10 +14,13 @@ app.Configure(config =>
         .WithExample(["scan-pending-model-changes"])
         .WithExample(["scan-pending-model-changes", "./MySolution"]);
 
-    var migrateItem = config.AddCommand<MigrateCommand>("migrate")
-        .WithDescription("Scans a solution for EF Core migrations and displays them in a tree view.")
-        .WithExample(["migrate"])
-        .WithExample(["migrate", "./MySolution"]);
+    var migrateItem = config.AddCommand<ApplyMigrationCommand>("apply-migration")
+        .WithDescription("Applies pending migrations to the local database.")
+        .WithExample(["apply-migration"])
+        .WithExample(["apply-migration", "./MySolution"])
+        .WithExample(["apply-migration", "--context", "PrimaryDbContext"])
+        .WithExample(["apply-migration", "--context", "PrimaryDbContext", "--migrationName", "InitialCreate"])
+        .WithExample(["apply-migration", "./MySolution", "--context", "PrimaryDbContext"]);
 
     var dropDbItem = config.AddCommand<DropDbCommand>("drop-db")
         .WithDescription("Drop the database. This is a destructive operation.")
@@ -27,7 +30,9 @@ app.Configure(config =>
     var addMigrationItem = config.AddCommand<AddMigrationCommand>("add-migration")
         .WithDescription("Adds a new migration.")
         .WithExample(["add-migration"])
-        .WithExample(["add-migration", "./MySolution"]);
+        .WithExample(["add-migration", "./MySolution"])
+        .WithExample(["add-migration", "--context", "PrimaryDbContext", "--migrationName", "AddCustomerTable"])
+        .WithExample(["add-migration", "./MySolution", "--context", "PrimaryDbContext", "--migrationName", "AddCustomerTable"]);
 
     var removeMigrationItem = config.AddCommand<RemoveMigrationCommand>("remove-migration")
         .WithDescription("Remove a new migration.")
@@ -58,8 +63,8 @@ var menu = new Dictionary<string, string>()
     { "Add Migration", "add-migration" },
     { "Remove Migration", "remove-migration" },
     { "Reset All Migrations", "reset-all-migrations" },
-    { "Migrate Database", "migrate" },
-    { "Drop Database (at your own risk)", "drop-db" },
+    { "Apply Migration", "apply-migration" },
+    { "Drop Database (only works for IDesignTimeDbContextFactory)", "drop-db" },
     { "Build Solution", "build" },
     { "Exit", "exit" }
 };
