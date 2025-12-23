@@ -14,7 +14,13 @@ The purpose of the `drop-db` command is to drop an existing database associated 
 
 ### Drop DB Command (DropDbCommand.cs)
 
-The `drop-db` command currently operates in **Interactive Mode** only.
+The `drop-db` command supports two execution modes: **Interactive Mode** and **Command Line Mode**.
+
+#### Mode Detection
+
+The command automatically determines the execution mode based on the presence of command line options:
+- **Interactive Mode**: When the `--context` option is not provided.
+- **Command Line Mode**: When the `--context` option is provided.
 
 #### Interactive Mode
 
@@ -26,6 +32,13 @@ In interactive mode:
    - Prompts the user to confirm whether to drop the database.
    - If confirmed, drops the database using `DbContext.Database.EnsureDeleted()`.
 
+#### Command Line Mode
+
+In command line mode:
+1. The `--context` option is required.
+2. The command validates that the specified DbContext exists in the solution.
+3. Drops the database directly without prompting for confirmation.
+
 ### Command Line Options
 
 The command supports the following options:
@@ -33,6 +46,22 @@ The command supports the following options:
 | Option | Description | Required |
 |--------|-------------|----------|
 | `[scanPath]` | Path to scan for the solution. Defaults to the current directory. Provided as a positional argument. | No |
+| `--context <DbContextName>` | Name of the DbContext whose database should be dropped. | Yes (Command Line Mode) |
+
+### Settings Class (DropDbSettings)
+
+The `DropDbSettings` class extends `NabsMigrationsSettings` and includes:
+
+```csharp
+public class DropDbSettings : NabsMigrationsSettings
+{
+    [Description("Name of the DbContext whose database should be dropped. Required when using the command line.")]
+    [CommandOption("--context")]
+    public string? Context { get; init; }
+
+    public bool IsInteractiveMode => string.IsNullOrWhiteSpace(Context);
+}
+```
 
 ### IDesignTimeDbContextFactory Requirement
 
@@ -67,23 +96,40 @@ nabs-migrations drop-db
 nabs-migrations drop-db ./MySolution
 ```
 
+### Command Line Mode
+
+```powershell
+# Drop database for a specific DbContext
+nabs-migrations drop-db --context PrimaryDbContext
+
+# With a specific solution path
+nabs-migrations drop-db ./MySolution --context PrimaryDbContext
+```
+
 ## Error Handling
 
 The command handles the following scenarios:
 
-| Scenario | Behavior |
-|----------|----------|
-| User declines confirmation | Displays "Skipping DB drop for: {databaseName}" and continues to next DbContext |
-| Database does not exist | Displays "DB did not exist or could not be deleted: {databaseName}" |
-| Database successfully deleted | Displays "Successfully deleted DB: {databaseName}" |
+| Scenario | Error Message / Behavior |
+|----------|--------------------------|
+| `--context` not found | "Error: DbContext '{Context}' was not found in the solution." |
+| User declines confirmation (interactive) | "Skipping DB drop for: {databaseName}" |
+| Database does not exist | "DB did not exist or could not be deleted: {databaseName}" |
+| Database successfully deleted | "Successfully deleted DB: {databaseName}" |
 
 ## Testing Process
 
 - The `scanPath` is currently hard coded to the following solution directory for testing purposes: `C:\Dev\nabs-darrel-schreyer\azd-pipelines-azure-infra`.
 - The project that contains the DbContext factories is: `AzdPipelinesAzureInfra.DataMigrations`.
+- The two `DbContext` are called:
+  - `PrimaryDbContext`
+  - `SecondaryDbContext`
 
 ### Test Commands
 
 ```powershell
 # Test Interactive Mode
 nabs-migrations drop-db
+
+# Test Command Line Mode
+nabs-migrations drop-db --context PrimaryDbContext

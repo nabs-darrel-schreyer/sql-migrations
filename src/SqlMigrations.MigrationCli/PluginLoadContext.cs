@@ -5,19 +5,24 @@ namespace SqlMigrations.MigrationCli;
 public class PluginLoadContext : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;
-    private readonly string _pluginDirectory;
     private static readonly HashSet<string> _sharedAssemblies =
     [
         "Microsoft.EntityFrameworkCore",
+        "Microsoft.EntityFrameworkCore.Abstractions",
         "Microsoft.EntityFrameworkCore.Relational",
+        "Microsoft.EntityFrameworkCore.SqlServer",  // Add this!
         "Microsoft.EntityFrameworkCore.Design",
-        "Microsoft.EntityFrameworkCore.Abstractions"
+        "Microsoft.EntityFrameworkCore.Tools",
+        "Microsoft.Extensions.Logging",
+        "Microsoft.Extensions.Logging.Abstractions",
+        "Microsoft.Extensions.DependencyInjection",
+        "Microsoft.Extensions.DependencyInjection.Abstractions"
+        // Add any other EF-related ones you reference
     ];
 
-    public PluginLoadContext(string pluginPath) : base(isCollectible: true)
+    public PluginLoadContext(string pluginPath) : base(isCollectible: !Debugger.IsAttached)
     {
         _resolver = new AssemblyDependencyResolver(pluginPath);
-        _pluginDirectory = Path.GetDirectoryName(pluginPath)!;
     }
 
     public Assembly LoadFromAssemblyPathWithoutLock(string assemblyPath)

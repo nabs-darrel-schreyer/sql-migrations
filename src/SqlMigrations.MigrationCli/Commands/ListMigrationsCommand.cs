@@ -1,12 +1,14 @@
 ﻿namespace SqlMigrations.MigrationCli.Commands;
 
-internal sealed class ScanPendingModelChangesCommand : AsyncCommand<NabsMigrationsSettings>
+internal sealed class ListMigrationsCommand : AsyncCommand<NabsMigrationsSettings>
 {
     protected override async Task<int> ExecuteAsync(CommandContext context, NabsMigrationsSettings settings, CancellationToken cancellationToken)
     {
+        await ProcessHelpers.BuildSolutionAsync(settings.ScanPath);
+
         SolutionScanner.Scan(settings.ScanPath);
 
-        var panel = new Panel(MigrationsTree.Init(TreeOutputTypes.PendingModelChanges))
+        var panel = new Panel(MigrationsTree.Init())
             .Header("[green]Solution scanned successfully![/]")
             .Border(BoxBorder.Rounded)
             .BorderStyle(new Style(Color.Green));

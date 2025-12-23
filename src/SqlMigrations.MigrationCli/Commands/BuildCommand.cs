@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace SqlMigrations.MigrationCli.Commands;
+﻿namespace SqlMigrations.MigrationCli.Commands;
 
 internal sealed class BuildCommand : AsyncCommand<NabsMigrationsSettings>
 {
@@ -20,7 +16,7 @@ internal sealed class BuildCommand : AsyncCommand<NabsMigrationsSettings>
                     SolutionScanner.Solution!.SolutionFile.Directory!.FullName);
             });
 
-        AnsiConsole.Write("Build finished!");
+        AnsiConsole.MarkupLine("[green]Build finished![/]");
 
         return 0;
     }

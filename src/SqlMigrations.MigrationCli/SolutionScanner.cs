@@ -30,9 +30,6 @@ public static class SolutionScanner
 
             solutionDirectory = solutionDirectory.Parent;
         }
-
-        // Unload assemblies after scan is complete - all Type references are no longer needed
-        UnloadContexts();
     }
 
     public static void ScanForSolution(this DirectoryInfo solutionDirectory)
@@ -213,7 +210,10 @@ public static class SolutionScanner
         }
         finally
         {
-            context.Unload();
+            if (!Debugger.IsAttached)
+            {
+                context.Unload();
+            }
         }
     }
 
@@ -369,7 +369,7 @@ public static class SolutionScanner
     {
         foreach (var weakRef in _loadContexts)
         {
-            if (weakRef.TryGetTarget(out var context))
+            if (weakRef.TryGetTarget(out var context) && context.IsCollectible)
             {
                 context.Unload();
             }
@@ -377,7 +377,6 @@ public static class SolutionScanner
 
         _loadContexts.Clear();
 
-        // Suggest garbage collection to release the assemblies
         GC.Collect();
         GC.WaitForPendingFinalizers();
     }

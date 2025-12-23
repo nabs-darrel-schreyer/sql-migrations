@@ -47,6 +47,8 @@ internal sealed class AddMigrationCommand : AsyncCommand<AddMigrationSettings>
 
     private async Task<int> ExecuteCommandLineModeAsync(AddMigrationSettings settings, CancellationToken cancellationToken)
     {
+        await ProcessHelpers.BuildSolutionAsync(settings.ScanPath);
+
         SolutionScanner.Scan(settings.ScanPath);
 
         var projectItems = SolutionScanner
@@ -81,31 +83,15 @@ internal sealed class AddMigrationCommand : AsyncCommand<AddMigrationSettings>
 
         var dbContextName = targetDbContextItem.DbContextTypeName.Split('.').Last();
 
-        await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .StartAsync($"[green]Adding migration[/] [blue]{settings.MigrationName}[/] to [blue]{dbContextName}[/]", async ctx =>
-            {
-                try
-                {
-                    await ProcessHelpers.RunProcessAsync(
-                        "dotnet",
-                        $"ef migrations add {settings.MigrationName} --context {dbContextName} --output-dir Migrations/{dbContextName}Migrations --verbose",
-                        targetProjectItem.ProjectFile.Directory!.FullName);
-
-                    AnsiConsole.MarkupLine($"[green]Successfully added new migration:[/] [blue]{settings.MigrationName}[/]");
-                }
-                catch (Exception ex)
-                {
-                    AnsiConsole.MarkupLine($"[red]Failed to add migration:[/] [blue]{settings.MigrationName}[/]");
-                    AnsiConsole.Markup(ex.StackTrace!);
-                }
-            });
+        await ExecuteAction(targetProjectItem, settings.MigrationName!, dbContextName);
 
         return 0;
     }
 
     private async Task<int> ExecuteInteractiveModeAsync(AddMigrationSettings settings, CancellationToken cancellationToken)
     {
+        await ProcessHelpers.BuildSolutionAsync(settings.ScanPath);
+
         SolutionScanner.Scan(settings.ScanPath);
 
         var projectItems = SolutionScanner
@@ -145,8 +131,7 @@ internal sealed class AddMigrationCommand : AsyncCommand<AddMigrationSettings>
                     AnsiConsole.MarkupLine($"  * {outstandingChange.Description} ({changeType})");
                 }
 
-
-                var dbContextName = dbContextFactoryItem.DbContextTypeName;
+                var dbContextName = dbContextFactoryItem.DbContextTypeName.Split('.').Last();
                 var projectName = projectItem.ProjectFile.Name.Replace(".csproj", "");
 
                 var confirmation = AnsiConsole.Prompt(
@@ -171,30 +156,31 @@ internal sealed class AddMigrationCommand : AsyncCommand<AddMigrationSettings>
                                 : ValidationResult.Success();
                         }));
 
-                await AnsiConsole.Status()
-                    .Spinner(Spinner.Known.Dots)
-                    .StartAsync($"[green]Adding migration[/] [blue]{migrationName}[/] to [blue]{dbContextName}[/]", async ctx =>
-                    {
-                        var dbContextName = dbContextFactoryItem.DbContextTypeName.Split('.').Last();
-
-                        try
-                        {
-                            await ProcessHelpers.RunProcessAsync(
-                                "dotnet",
-                                $"ef migrations add {dbContextName}_{migrationName} --context {dbContextName} --output-dir Migrations/{dbContextName}Migrations --verbose",
-                                projectItem.ProjectFile.Directory!.FullName);
-
-                            AnsiConsole.MarkupLine($"[green]Successfully added new migration:[/] [blue]{migrationName}[/]");
-                        }
-                        catch (Exception ex)
-                        {
-                            AnsiConsole.MarkupLine($"[red]Failed to add migration to:[/] [blue]{migrationName}[/]");
-                            AnsiConsole.Markup(ex.StackTrace!);
-                        }
-                    });
+                await ExecuteAction(projectItem, migrationName, dbContextName);
             }
         }
 
         return 0;
+    }
+
+    public async Task ExecuteAction(ProjectItem projectItem, string migrationName, string dbContextName)
+    {
+        await AnsiConsole.CreateSpinner(
+            $"[green]Adding migration[/] [blue]{migrationName}[/] to [blue]{dbContextName}[/]",
+            $"[red]Failed to add migration to:[/] [blue]{migrationName}[/]",
+            async () =>
+            {
+                var arguments = $"ef migrations add {dbContextName}-{migrationName} --context {dbContextName} --output-dir Migrations/{dbContextName}Migrations --verbose";
+
+                await ProcessHelpers.RunProcessAsync(
+                        "dotnet",
+                        arguments,
+                        projectItem.ProjectFile.Directory!.FullName);
+
+                await ProcessHelpers.BuildSolutionAsync();
+
+                AnsiConsole.MarkupLine($"[green]Successfully added new migration:[/] [blue]{migrationName}[/]");
+            }
+            );
     }
 }

@@ -1,6 +1,8 @@
-﻿namespace SqlMigrations.MigrationCli.Commands;
+﻿using Microsoft.EntityFrameworkCore;
 
-public class ApplyMigrationSettings : NabsMigrationsSettings
+namespace SqlMigrations.MigrationCli.Commands;
+
+public class ApplyMigrationsSettings : NabsMigrationsSettings
 {
     [Description("Name of the DbContext to migrate. Required when using the command line.")]
     [CommandOption("--context")]
@@ -17,11 +19,11 @@ public class ApplyMigrationSettings : NabsMigrationsSettings
     public bool IsInteractiveMode => string.IsNullOrWhiteSpace(Context);
 }
 
-internal sealed class ApplyMigrationCommand : Command<ApplyMigrationSettings>
+internal sealed class ApplyMigrationsCommand : AsyncCommand<ApplyMigrationsSettings>
 {
-    protected override int Execute(CommandContext context, ApplyMigrationSettings settings, CancellationToken cancellationToken)
+    protected override async Task<int> ExecuteAsync(CommandContext context, ApplyMigrationsSettings settings, CancellationToken cancellationToken)
     {
-        var rule = new Rule("[yellow]APPLY MIGRATION[/]");
+        var rule = new Rule("[yellow]APPLY MIGRATIONS[/]");
         rule.LeftJustified();
         AnsiConsole.Write(rule);
 
@@ -34,15 +36,17 @@ internal sealed class ApplyMigrationCommand : Command<ApplyMigrationSettings>
                 return 1;
             }
 
-            return ExecuteCommandLineMode(settings);
+            return await ExecuteCommandLineMode(settings);
         }
 
-        return ExecuteInteractiveMode(settings);
+        return await ExecuteInteractiveMode(settings);
     }
 
-    private int ExecuteCommandLineMode(ApplyMigrationSettings settings)
+    private async Task<int> ExecuteCommandLineMode(ApplyMigrationsSettings settings)
     {
         SolutionScanner.Scan(settings.ScanPath);
+
+        await ProcessHelpers.BuildSolutionAsync();
 
         var dbContextItems = SolutionScanner
             .Solution!
@@ -51,17 +55,9 @@ internal sealed class ApplyMigrationCommand : Command<ApplyMigrationSettings>
             .ToList();
 
         // Find the specified DbContext
-        DbContextFactoryItem? targetDbContextItem = null;
-
-        foreach (var dbContextFactoryItem in dbContextItems)
-        {
-            var contextName = dbContextFactoryItem.DbContextTypeName.Split('.').Last();
-            if (contextName.Equals(settings.Context, StringComparison.OrdinalIgnoreCase))
-            {
-                targetDbContextItem = dbContextFactoryItem;
-                break;
-            }
-        }
+        var targetDbContextItem = dbContextItems.FirstOrDefault(d =>
+            d.DbContextTypeName.Split('.').Last()
+                .Equals(settings.Context, StringComparison.OrdinalIgnoreCase));
 
         if (targetDbContextItem == null)
         {
@@ -112,7 +108,8 @@ internal sealed class ApplyMigrationCommand : Command<ApplyMigrationSettings>
                     catch (Exception ex)
                     {
                         AnsiConsole.MarkupLine($"[red]Failed to apply migration:[/] [blue]{pendingMigration}[/]");
-                        AnsiConsole.Markup(ex.StackTrace ?? string.Empty);
+                        AnsiConsole.Write(ex.Message);
+                        AnsiConsole.Write(ex.StackTrace ?? "No stack trace");
                     }
                 });
         }
@@ -123,7 +120,7 @@ internal sealed class ApplyMigrationCommand : Command<ApplyMigrationSettings>
         return 0;
     }
 
-    private int ExecuteInteractiveMode(ApplyMigrationSettings settings)
+    private async Task<int> ExecuteInteractiveMode(ApplyMigrationsSettings settings)
     {
         SolutionScanner.Scan(settings.ScanPath);
 
@@ -133,39 +130,75 @@ internal sealed class ApplyMigrationCommand : Command<ApplyMigrationSettings>
                     .SelectMany(p => p.DbContextFactoryItems)
                     .ToList();
 
+        var dbContextsWithMigrations = dbContextItems
+            .Where(d => d.MigrationItems.Any())
+            .ToList();
+
+        if(!dbContextsWithMigrations.Any())
+        {
+            AnsiConsole.MarkupLine("[yellow]No DbContexts with migrations were found in the solution.[/]");
+            SolutionScanner.Unload();
+            return 0;
+        }
+
+        AnsiConsole.MarkupLine($"The following [blue]{dbContextsWithMigrations.Count}[/] migrations are available:");
+
+        var table = new Table()
+                    .AddColumn("Server")
+                    .AddColumn("Database")
+                    .AddColumn("DbContext")
+                    .AddColumn("Pending Migration");
+
         foreach (var dbContextItem in dbContextItems)
         {
             using var dbContext = SolutionScanner.CreateDbContext(dbContextItem)!;
             var databaseName = dbContext.Database.GetDbConnection().Database;
+            var databaseInstance = dbContext.Database.GetDbConnection().DataSource;
+            var pendingMigrations = dbContext.Database.GetPendingMigrations().ToList();
 
-            var confirmation = AnsiConsole.Prompt(
-                new TextPrompt<bool>($"Are you sure you want to [yellow]APPLY MIGRATION[/] to the database: [blue]{databaseName}[/]?")
-                    .AddChoice(true)
-                    .AddChoice(false)
-                    .DefaultValue(false)
-                    .WithConverter(choice => choice ? "y" : "n"));
-
-            if (!confirmation)
+            foreach (var pendingMigration in pendingMigrations)
             {
-                AnsiConsole.MarkupLine($"[yellow]Skipping migration for:[/] [blue]{databaseName}[/]");
-                continue;
+                table.AddRow(databaseInstance, databaseName, dbContextItem.DbContextTypeName.Split('.').Last(), pendingMigration);
             }
+        }
+        AnsiConsole.Write(table);
 
-            foreach (var pendingMigration in dbContext.Database.GetPendingMigrations())
+        foreach (var dbContextItem in dbContextItems)
+        {
+            using var dbContext = SolutionScanner.CreateDbContext(dbContextItem)!;
+            var databaseName = dbContext.Database.GetDbConnection().Database;
+            var databaseInstance = dbContext.Database.GetDbConnection().DataSource;
+            var pendingMigrations = dbContext.Database.GetPendingMigrations().ToList();
+
+            foreach (var pendingMigration in pendingMigrations)
             {
+                var confirmation = AnsiConsole.Prompt(
+                    new TextPrompt<bool>($"Are you sure you want to [yellow]APPLY MIGRATION[/]: {pendingMigration}?")
+                        .AddChoice(true)
+                        .AddChoice(false)
+                        .DefaultValue(false)
+                        .WithConverter(choice => choice ? "y" : "n"));
+
+                if (!confirmation)
+                {
+                    AnsiConsole.MarkupLine($"[yellow]Skipping migration:[/] [blue]{pendingMigration}[/]");
+                    continue;
+                }
+
                 AnsiConsole.Status()
                     .Spinner(Spinner.Known.Dots)
-                    .Start($"[green]Migrating database:[/] [blue]{databaseName}[/]", ctx =>
+                    .Start($"[green]Applying migration:[/] [blue]{pendingMigration}[/]", ctx =>
                     {
                         try
                         {
                             dbContext.Database.Migrate(pendingMigration);
-                            AnsiConsole.MarkupLine($"[green]Successfully migrated database:[/] [blue]{databaseName}[/]");
+                            AnsiConsole.MarkupLine($"[green]Successfully applied migration:[/] [blue]{pendingMigration}[/]");
                         }
                         catch (Exception ex)
                         {
-                            AnsiConsole.MarkupLine($"[yellow]The database did not exist or could not be migrated:[/] [blue]{databaseName}[/]");
-                            AnsiConsole.Markup(ex.StackTrace ?? string.Empty);
+                            AnsiConsole.MarkupLine($"[yellow]Failed to apply migration:[/] [blue]{pendingMigration}[/]");
+                            AnsiConsole.Write(ex.Message);
+                            AnsiConsole.Write(ex.StackTrace ?? "No stack trace");
                         }
                     });
             }
