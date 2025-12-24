@@ -18,6 +18,8 @@ internal sealed class BuildCommand : AsyncCommand<NabsMigrationsSettings>
 
         AnsiConsole.MarkupLine("[green]Build finished![/]");
 
+        SolutionScanner.Unload();
+
         return 0;
     }
 }

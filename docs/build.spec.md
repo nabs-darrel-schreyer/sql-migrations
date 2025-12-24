@@ -16,9 +16,8 @@ The `build` command operates in a single mode and builds the entire solution.
 #### Behavior
 
 1. The command scans for the solution file at the specified path.
-2. Executes `dotnet build` in the solution directory.
-3. Displays the build progress with a spinner.
-4. Reports when the build is finished.
+2. Executes `dotnet build` in the solution directory with a spinner indicating progress.
+3. Displays "Build finished!" when the build completes.
 
 ### Command Line Options
 
@@ -38,13 +37,8 @@ nabs-migrations build
 nabs-migrations build ./MySolution
 ```
 
-## Testing Process
+## Output
 
-- The `scanPath` is currently hard coded to the following solution directory for testing purposes: `C:\Dev\nabs-darrel-schreyer\azd-pipelines-azure-infra`.
-
-### Test Commands
-
-```powershell
-# Test build
-nabs-migrations build
-```
+The command displays:
+1. A spinner with the message "Building Solution: {SolutionName}"
+2. "Build finished!" upon successful completion

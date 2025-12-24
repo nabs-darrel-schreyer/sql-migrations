@@ -15,6 +15,8 @@ internal sealed class ListMigrationsCommand : AsyncCommand<NabsMigrationsSetting
 
         AnsiConsole.Write(panel);
 
+        SolutionScanner.Unload();
+
         return 0;
     }
 }

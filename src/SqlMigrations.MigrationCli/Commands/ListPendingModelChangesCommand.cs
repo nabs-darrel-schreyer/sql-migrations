@@ -15,6 +15,8 @@ internal sealed class ListPendingModelChangesCommand : AsyncCommand<NabsMigratio
 
         AnsiConsole.Write(panel);
 
+        SolutionScanner.Unload();
+
         return 0;
     }
 }

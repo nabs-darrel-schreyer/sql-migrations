@@ -1,4 +1,4 @@
-# Drop DB Command Specification
+# Drop Database Command Specification
 
 The purpose of the `drop-db` command is to drop an existing database associated with a specified DbContext in an Entity Framework Core project. This specification outlines the requirements, options, and expected behavior of the `drop-db` command.
 
@@ -7,12 +7,12 @@ The purpose of the `drop-db` command is to drop an existing database associated 
 ## Assumptions
 
 - The `drop-db` command assumes that the user has a basic understanding of Entity Framework Core and database management.
-- The command will be run within the context of a .NET project that has been properly configured to use Entity Framework Core.
+- The command will be run within the context of a .NET solution that has been properly configured to use Entity Framework Core.
 - The command only works with DbContext factories that implement `IDesignTimeDbContextFactory<TContext>`. This interface is used by Entity Framework Core design-time tools and ensures the command operates in a controlled development environment.
 
 ## Features
 
-### Drop DB Command (DropDbCommand.cs)
+### Drop Database Command (DropDbCommand.cs)
 
 The `drop-db` command supports two execution modes: **Interactive Mode** and **Command Line Mode**.
 
@@ -26,9 +26,10 @@ The command automatically determines the execution mode based on the presence of
 
 In interactive mode:
 1. The command scans for available DbContexts in the solution by locating `IDesignTimeDbContextFactory<TContext>` implementations.
-2. For each detected DbContext:
-   - Creates an instance of the DbContext using the factory.
-   - Retrieves the database name from the connection.
+2. If no DbContexts are found, displays a message and exits.
+3. Groups DbContexts by their connection string to identify unique databases (multiple DbContexts may share the same database).
+4. Displays a table showing Server, Database, DbContext(s), and Schema for each database.
+5. For each unique database:
    - Prompts the user to confirm whether to drop the database.
    - If confirmed, drops the database using `DbContext.Database.EnsureDeleted()`.
 
@@ -113,23 +114,7 @@ The command handles the following scenarios:
 | Scenario | Error Message / Behavior |
 |----------|--------------------------|
 | `--context` not found | "Error: DbContext '{Context}' was not found in the solution." |
+| No DbContexts found (interactive) | "No DbContexts were found in the solution." |
 | User declines confirmation (interactive) | "Skipping DB drop for: {databaseName}" |
 | Database does not exist | "DB did not exist or could not be deleted: {databaseName}" |
 | Database successfully deleted | "Successfully deleted DB: {databaseName}" |
-
-## Testing Process
-
-- The `scanPath` is currently hard coded to the following solution directory for testing purposes: `C:\Dev\nabs-darrel-schreyer\azd-pipelines-azure-infra`.
-- The project that contains the DbContext factories is: `AzdPipelinesAzureInfra.DataMigrations`.
-- The two `DbContext` are called:
-  - `PrimaryDbContext`
-  - `SecondaryDbContext`
-
-### Test Commands
-
-```powershell
-# Test Interactive Mode
-nabs-migrations drop-db
-
-# Test Command Line Mode
-nabs-migrations drop-db --context PrimaryDbContext

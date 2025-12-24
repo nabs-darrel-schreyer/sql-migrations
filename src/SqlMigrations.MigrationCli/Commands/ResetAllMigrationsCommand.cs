@@ -30,14 +30,16 @@ internal sealed class ResetAllMigrationsCommand : AsyncCommand<ResetAllMigration
                 return 1;
             }
 
-            return await ExecuteCommandLineModeAsync(settings, cancellationToken);
+            return await ExecuteCommandLineModeAsync(settings);
         }
 
-        return await ExecuteInteractiveModeAsync(settings, cancellationToken);
+        return await ExecuteInteractiveModeAsync(settings);
     }
 
-    private async Task<int> ExecuteCommandLineModeAsync(ResetAllMigrationsSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteCommandLineModeAsync(ResetAllMigrationsSettings settings)
     {
+        await ProcessHelpers.BuildSolutionAsync(settings.ScanPath);
+
         SolutionScanner.Scan(settings.ScanPath);
 
         var projectItems = SolutionScanner
@@ -48,6 +50,7 @@ internal sealed class ResetAllMigrationsCommand : AsyncCommand<ResetAllMigration
         if (projectItems.Count == 0)
         {
             AnsiConsole.MarkupLine($"[yellow]No data migration projects were found in the solution.[/]");
+            SolutionScanner.Unload();
             return 1;
         }
 
@@ -55,14 +58,18 @@ internal sealed class ResetAllMigrationsCommand : AsyncCommand<ResetAllMigration
         {
             var projectFileName = Path.GetFileNameWithoutExtension(projectItem.ProjectFile.FullName);
 
-            await ExecuteAction(projectItem, projectFileName);
+            await ExecuteActionAsync(projectItem, projectFileName);
         }
+
+        SolutionScanner.Unload();
 
         return 0;
     }
 
-    private async Task<int> ExecuteInteractiveModeAsync(ResetAllMigrationsSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteInteractiveModeAsync(ResetAllMigrationsSettings settings)
     {
+        await ProcessHelpers.BuildSolutionAsync(settings.ScanPath);
+
         SolutionScanner.Scan(settings.ScanPath);
 
         var projectItems = SolutionScanner
@@ -74,6 +81,7 @@ internal sealed class ResetAllMigrationsCommand : AsyncCommand<ResetAllMigration
         if (!projectItems.Any())
         {
             AnsiConsole.MarkupLine("[green]No migration projects found to reset.[/]");
+            SolutionScanner.Unload();
             return 0;
         }
 
@@ -94,13 +102,15 @@ internal sealed class ResetAllMigrationsCommand : AsyncCommand<ResetAllMigration
                 continue;
             }
 
-            await ExecuteAction(projectItem, projectFileName);
+            await ExecuteActionAsync(projectItem, projectFileName);
         }
+
+        SolutionScanner.Unload();
 
         return 0;
     }
 
-    private async Task ExecuteAction(ProjectItem projectItem, string projectFileName)
+    private async Task ExecuteActionAsync(ProjectItem projectItem, string projectFileName)
     {
         await AnsiConsole.CreateSpinner(
                 $"[green]Deleting all migrations for[/] [blue]{projectFileName}[/]",
@@ -111,8 +121,6 @@ internal sealed class ResetAllMigrationsCommand : AsyncCommand<ResetAllMigration
                     if (Directory.Exists(migrationsFolder))
                     {
                         Directory.Delete(migrationsFolder, true);
-
-                        await ProcessHelpers.BuildSolutionAsync();
 
                         AnsiConsole.MarkupLine($"[green]Successfully deleted all migrations:[/] [blue]{projectFileName}[/]");
                     }

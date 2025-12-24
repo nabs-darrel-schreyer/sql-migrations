@@ -1,6 +1,6 @@
 ﻿namespace SqlMigrations.MigrationCli.Commands;
 
-public class RemoveMigrationSettings : NabsMigrationsSettings
+public class RemoveMigrationsSettings : NabsMigrationsSettings
 {
     [Description("Name of the DbContext to remove the migration from. Required when using the command line.")]
     [CommandOption("--context")]
@@ -13,9 +13,9 @@ public class RemoveMigrationSettings : NabsMigrationsSettings
     public bool IsInteractiveMode => string.IsNullOrWhiteSpace(Context);
 }
 
-internal sealed class RemoveMigrationCommand : AsyncCommand<RemoveMigrationSettings>
+internal sealed class RemoveMigrationsCommand : AsyncCommand<RemoveMigrationsSettings>
 {
-    protected override async Task<int> ExecuteAsync(CommandContext context, RemoveMigrationSettings settings, CancellationToken cancellationToken)
+    protected override async Task<int> ExecuteAsync(CommandContext context, RemoveMigrationsSettings settings, CancellationToken cancellationToken)
     {
         var rule = new Rule("[yellow]REMOVE MIGRATIONS[/]");
         rule.LeftJustified();
@@ -30,13 +30,13 @@ internal sealed class RemoveMigrationCommand : AsyncCommand<RemoveMigrationSetti
                 return 1;
             }
 
-            return await ExecuteCommandLineModeAsync(settings, cancellationToken);
+            return await ExecuteCommandLineModeAsync(settings);
         }
 
-        return await ExecuteInteractiveModeAsync(settings, cancellationToken);
+        return await ExecuteInteractiveModeAsync(settings);
     }
 
-    private async Task<int> ExecuteCommandLineModeAsync(RemoveMigrationSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteCommandLineModeAsync(RemoveMigrationsSettings settings)
     {
         await ProcessHelpers.BuildSolutionAsync(settings.ScanPath);
 
@@ -69,6 +69,7 @@ internal sealed class RemoveMigrationCommand : AsyncCommand<RemoveMigrationSetti
         if (targetDbContextItem == null || targetProjectItem == null)
         {
             AnsiConsole.MarkupLine($"[red]Error: DbContext '{settings.Context}' was not found in the solution.[/]");
+            SolutionScanner.Unload();
             return 1;
         }
 
@@ -97,10 +98,12 @@ internal sealed class RemoveMigrationCommand : AsyncCommand<RemoveMigrationSetti
                 }
             });
 
+        SolutionScanner.Unload();
+
         return 0;
     }
 
-    private async Task<int> ExecuteInteractiveModeAsync(RemoveMigrationSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteInteractiveModeAsync(RemoveMigrationsSettings settings)
     {
         await ProcessHelpers.BuildSolutionAsync(settings.ScanPath);
 
@@ -156,6 +159,8 @@ internal sealed class RemoveMigrationCommand : AsyncCommand<RemoveMigrationSetti
                     });
             }
         }
+
+        SolutionScanner.Unload();
 
         return 0;
     }

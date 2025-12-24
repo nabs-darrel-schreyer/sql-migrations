@@ -36,17 +36,17 @@ internal sealed class ApplyMigrationsCommand : AsyncCommand<ApplyMigrationsSetti
                 return 1;
             }
 
-            return await ExecuteCommandLineMode(settings);
+            return await ExecuteCommandLineModeAsync(settings);
         }
 
-        return await ExecuteInteractiveMode(settings);
+        return await ExecuteInteractiveModeAsync(settings);
     }
 
-    private async Task<int> ExecuteCommandLineMode(ApplyMigrationsSettings settings)
+    private async Task<int> ExecuteCommandLineModeAsync(ApplyMigrationsSettings settings)
     {
-        SolutionScanner.Scan(settings.ScanPath);
+        await ProcessHelpers.BuildSolutionAsync(settings.ScanPath);
 
-        await ProcessHelpers.BuildSolutionAsync();
+        SolutionScanner.Scan(settings.ScanPath);
 
         var dbContextItems = SolutionScanner
             .Solution!
@@ -120,8 +120,10 @@ internal sealed class ApplyMigrationsCommand : AsyncCommand<ApplyMigrationsSetti
         return 0;
     }
 
-    private async Task<int> ExecuteInteractiveMode(ApplyMigrationsSettings settings)
+    private async Task<int> ExecuteInteractiveModeAsync(ApplyMigrationsSettings settings)
     {
+        await ProcessHelpers.BuildSolutionAsync(settings.ScanPath);
+
         SolutionScanner.Scan(settings.ScanPath);
 
         var dbContextItems = SolutionScanner
@@ -136,7 +138,7 @@ internal sealed class ApplyMigrationsCommand : AsyncCommand<ApplyMigrationsSetti
 
         if(!dbContextsWithMigrations.Any())
         {
-            AnsiConsole.MarkupLine("[yellow]No DbContexts with migrations were found in the solution.[/]");
+            AnsiConsole.MarkupLine("[red]No DbContexts with migrations were found in the solution.[/]");
             SolutionScanner.Unload();
             return 0;
         }
@@ -196,7 +198,7 @@ internal sealed class ApplyMigrationsCommand : AsyncCommand<ApplyMigrationsSetti
                         }
                         catch (Exception ex)
                         {
-                            AnsiConsole.MarkupLine($"[yellow]Failed to apply migration:[/] [blue]{pendingMigration}[/]");
+                            AnsiConsole.MarkupLine($"[red]Failed to apply migration:[/] [blue]{pendingMigration}[/]");
                             AnsiConsole.Write(ex.Message);
                             AnsiConsole.Write(ex.StackTrace ?? "No stack trace");
                         }

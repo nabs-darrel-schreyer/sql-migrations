@@ -1,17 +1,18 @@
-﻿# Add Migration Specification
+﻿# Add Migrations Command Specification
 
-The purpose of the `add-migration` command is to create new migration files for database schema changes in an Entity Framework Core project. This specification outlines the requirements, options, and expected behavior of the `add-migration` command.
+The purpose of the `add-migrations` command is to create new migration files for database schema changes in an Entity Framework Core project. This specification outlines the requirements, options, and expected behavior of the `add-migrations` command.
 
 ## Assumptions
 
-- The `add-migration` command assumes that the user has a basic understanding of Entity Framework Core and that it can create migration code to facilitate database schema changes.
-- The command will be run within the context of a .NET project that has been properly configured to use Entity Framework Core.
+- The `add-migrations` command assumes that the user has a basic understanding of Entity Framework Core and that it can create migration code to facilitate database schema changes.
+- The command will be run within the context of a .NET solution that has been properly configured to use Entity Framework Core.
+- The command only works with DbContext factories that implement `IDesignTimeDbContextFactory<TContext>`.
 
 ## Features
 
-### Add Migration Command (AddMigrationCommand.cs)
+### Add Migrations Command (AddMigrationsCommand.cs)
 
-The `add-migration` command supports two execution modes: **Interactive Mode** and **Command Line Mode**.
+The `add-migrations` command supports two execution modes: **Interactive Mode** and **Command Line Mode**.
 
 #### Mode Detection
 
@@ -22,13 +23,15 @@ The command automatically determines the execution mode based on the presence of
 #### Interactive Mode
 
 In interactive mode:
-1. The command scans for DbContexts with pending model changes.
-2. If no outstanding changes are detected, it displays a message and exits.
-3. For each DbContext with pending changes:
+1. The command builds the solution first.
+2. Scans for DbContexts with pending model changes by locating `IDesignTimeDbContextFactory<TContext>` implementations.
+3. If no outstanding changes are detected, it displays a message and exits.
+4. For each DbContext with pending changes:
    - Displays the list of pending model changes (marked as DESTRUCTIVE or NON-DESTRUCTIVE).
    - Prompts the user to confirm whether to create a migration.
    - If confirmed, prompts the user to enter the migration name.
    - Creates the migration using `dotnet ef migrations add`.
+   - Rebuilds the solution after adding the migration.
 
 #### Command Line Mode
 
@@ -36,6 +39,7 @@ In command line mode:
 1. Both `--context` and `--migrationName` options are required.
 2. The command validates that the specified DbContext exists in the solution.
 3. Creates the migration directly without prompting for confirmation.
+4. Rebuilds the solution after adding the migration.
 
 ### Command Line Options
 
@@ -47,12 +51,12 @@ The command supports the following options:
 | `--context <DbContextName>` | Name of the DbContext to use for the migration. Only a single context can be specified at a time. | Yes (Command Line Mode) |
 | `--migrationName <name>` | Name of the migration to create. | Yes (Command Line Mode) |
 
-### Settings Class (AddMigrationSettings)
+### Settings Class (AddMigrationsSettings)
 
-The `AddMigrationSettings` class extends `NabsMigrationsSettings` and includes:
+The `AddMigrationsSettings` class extends `NabsMigrationsSettings` and includes:
 
 ```csharp
-public class AddMigrationSettings : NabsMigrationsSettings
+public class AddMigrationsSettings : NabsMigrationsSettings
 {
     [Description("Name of the DbContext to use for the migration. Required when using the command line.")]
     [CommandOption("--context")]
@@ -66,14 +70,15 @@ public class AddMigrationSettings : NabsMigrationsSettings
 }
 ```
 
-### Migration Name
+### Migration Naming
 
-- Should be unique across all migrations for the specified DbContext.
+- The migration name is prefixed with the DbContext name to ensure uniqueness across contexts.
+- Format: `{DbContextName}-{MigrationName}` (e.g., `PrimaryDbContext-InitialCreate`).
 - Should be provided in PascalCase (e.g., `AddCustomerTable`, `InitialCreate`).
 
 ### Output Directory
 
-The output directory is determined by the tool and follows the pattern: `Migrations/[DbContextName]Migrations`.
+The output directory is determined by the tool and follows the pattern: `Migrations/{DbContextName}Migrations`.
 
 For example:
 - `PrimaryDbContext` → `Migrations/PrimaryDbContextMigrations/`
@@ -85,20 +90,20 @@ For example:
 
 ```powershell
 # Run from current directory
-nabs-migrations
+nabs-migrations add-migrations
 
 # Specify a solution path
-nabs-migrations ./MySolution
+nabs-migrations add-migrations ./MySolution
 ```
 
 ### Command Line Mode
 
 ```powershell
 # Create migration for a specific DbContext
-nabs-migrations add-migration --context PrimaryDbContext --migrationName AddCustomerTable
+nabs-migrations add-migrations --context PrimaryDbContext --migrationName AddCustomerTable
 
 # With a specific solution path
-nabs-migrations add-migration ./MySolution --context PrimaryDbContext --migrationName AddCustomerTable
+nabs-migrations add-migrations ./MySolution --context PrimaryDbContext --migrationName AddCustomerTable
 ```
 
 ## Error Handling
@@ -110,28 +115,5 @@ The command handles the following error scenarios:
 | `--context` provided without `--migrationName` | "Error: --migrationName is required when using command line mode." |
 | `--migrationName` provided without `--context` | "Error: --context is required when using command line mode." |
 | Specified DbContext not found | "Error: DbContext '{Context}' was not found in the solution." |
-| Migration creation fails | "Failed to add migration: {migrationName}" with stack trace |
-
-## Testing Process
-
-- The `scanPath` is currently hard coded to the following solution directory for testing purposes: `C:\Dev\nabs-darrel-schreyer\azd-pipelines-azure-infra`.
-- During this initial testing phase, remove the migrations folder to ensure a clean migration process. The folder to delete is located at: `C:\Dev\nabs-darrel-schreyer\azd-pipelines-azure-infra\src\AzdPipelinesAzureInfra.DataMigrations\Migrations`.
-- The project that contains the migrations is: `AzdPipelinesAzureInfra.DataMigrations`. It contains two `DbContexts` and their associated Entities. The two `DbContext` are called:
-  - `PrimaryDbContext`
-  - `SecondaryDbContext`
-
-### Test Commands
-
-```powershell
-# Clean up migrations folder
-Remove-Item -Path "C:\Dev\nabs-darrel-schreyer\azd-pipelines-azure-infra\src\AzdPipelinesAzureInfra.DataMigrations\Migrations" -Recurse -Force
-
-# Test Command Line Mode - PrimaryDbContext
-nabs-migrations add-migration --context PrimaryDbContext --migrationName InitialCreate
-
-# Test Command Line Mode - SecondaryDbContext
-nabs-migrations add-migration --context SecondaryDbContext --migrationName InitialCreate
-
-# Test Interactive Mode
-nabs-migrations add-migration
-```
+| Migration creation fails | "Failed to add migration to: {migrationName}" with stack trace |
+| No outstanding changes (interactive) | "No outstanding changes detected in any DbContext. No migrations to add." |

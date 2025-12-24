@@ -1,48 +1,151 @@
 # Test Sequence
 
-This document outlines the test sequence for the Nabs Migrations tool.
+This document outlines the test sequence for the NABS Migrations tool.
 
 ## Prerequisites
 
-- Use the hard coded solution directory for testing purposes: `C:\Dev\nabs-darrel-schreyer\azd-pipelines-azure-infra`.
+- Ensure you have a .NET solution with Entity Framework Core configured.
+- The solution should contain at least one project with `IDesignTimeDbContextFactory<TContext>` implementations.
 
 ## Steps for Testing
 
-1. **Setup the Environment**
-   - Ensure that the solution at `C:\Dev\nabs-darrel-schreyer\azd-pipelines-azure-infra` is accessible.
-2. **Reset All Migrations**
-   - Before starting the test, delete the existing migrations folder to ensure a clean migration process. The folder to delete is located at:
-	 ```
-	 C:\Dev\nabs-darrel-schreyer\azd-pipelines-azure-infra\src\AzdPipelinesAzureInfra.DataMigrations\Migrations
-	 ```
-	- OR
-2. **Drop Existing Database**
-	- Navigate to the solution directory in your terminal.
-	- Run the following command to drop the existing database to ensure a clean state:
-	```powershell
-	nabs-migrations drop-db
-	```
-3. **Add Migrations**
-	- Use the following commands to add migrations for both `PrimaryDbContext` and `SecondaryDbContext`:
-	```powershell
-	nabs-migrations add-migration --context PrimaryDbContext --migrationName InitialCreate
-	nabs-migrations add-migration --context SecondaryDbContext --migrationName InitialCreate
-	```
-4. **Apply Migrations**
-	- Apply the migrations to the database using the following commands:
-	```powershell
-	nabs-migrations apply-migration --context PrimaryDbContext
-	nabs-migrations apply-migration --context SecondaryDbContext
-	```
-5. **Rebuild Solution**
-	- After applying the migrations, rebuild the solution to ensure all changes are compiled:
-	```powershell
-	dotnet build C:\Dev\nabs-darrel-schreyer\azd-pipelines-azure-infra\AzdPipelinesAzureInfra.sln
-	```
-6. **Scan Migrations**
-	- Finally, scan the migrations to verify their application:
-	```powershell
-	nabs-migrations scan-migrations
-	```
-	- Read the output to confirm that the migrations for the `PrimaryDbContext` and `SecondaryDbContext` have been applied successfully.
+### 1. Interactive Mode Testing
+
+Run the tool without arguments to test the interactive menu:
+
+```powershell
+nabs-migrations
+```
+
+This should display the interactive menu with all available options.
+
+### 2. List Pending Model Changes
+
+Test scanning for pending model changes:
+
+```powershell
+# Interactive
+nabs-migrations list-pending-model-changes
+
+# With specific path
+nabs-migrations list-pending-model-changes ./path/to/solution
+```
+
+### 3. List Migrations
+
+Test listing existing migrations:
+
+```powershell
+# Interactive
+nabs-migrations list-migrations
+
+# With specific path
+nabs-migrations list-migrations ./path/to/solution
+```
+
+### 4. Reset All Migrations (Clean Slate)
+
+Before testing add/apply, optionally reset all migrations:
+
+```powershell
+# Interactive (prompts for confirmation)
+nabs-migrations reset-all-migrations
+
+# Command line
+nabs-migrations reset-all-migrations --project MyProject.DataMigrations
+```
+
+### 5. Drop Existing Database
+
+Drop any existing databases for a clean test:
+
+```powershell
+# Interactive (prompts for confirmation per database)
+nabs-migrations drop-db
+
+# Command line (specific context)
+nabs-migrations drop-db --context PrimaryDbContext
+```
+
+### 6. Add Migrations
+
+Test adding new migrations:
+
+```powershell
+# Interactive (walks through each DbContext with pending changes)
+nabs-migrations add-migrations
+
+# Command line
+nabs-migrations add-migrations --context PrimaryDbContext --migrationName InitialCreate
+nabs-migrations add-migrations --context SecondaryDbContext --migrationName InitialCreate
+```
+
+### 7. Apply Migrations
+
+Test applying migrations to the database:
+
+```powershell
+# Interactive (prompts for each pending migration)
+nabs-migrations apply-migrations
+
+# Command line - all pending migrations
+nabs-migrations apply-migrations --context PrimaryDbContext
+
+# Command line - specific migration
+nabs-migrations apply-migrations --context PrimaryDbContext --migrationName InitialCreate
+```
+
+### 8. Build Solution
+
+Test the build command:
+
+```powershell
+nabs-migrations build
+```
+
+### 9. Verify Applied Migrations
+
+After applying, verify the migrations are shown as "Applied":
+
+```powershell
+nabs-migrations list-migrations
+```
+
+### 10. Remove Migration
+
+Test removing the last migration:
+
+```powershell
+# Interactive
+nabs-migrations remove-migrations
+
+# Command line
+nabs-migrations remove-migrations --context PrimaryDbContext
+```
+
+## Full Test Cycle
+
+For a complete test cycle, run these commands in order:
+
+```powershell
+# 1. Start fresh
+nabs-migrations reset-all-migrations
+nabs-migrations drop-db
+
+# 2. Add migrations for all contexts
+nabs-migrations add-migrations --context PrimaryDbContext --migrationName InitialCreate
+nabs-migrations add-migrations --context SecondaryDbContext --migrationName InitialCreate
+
+# 3. Verify migrations were created
+nabs-migrations list-migrations
+
+# 4. Apply migrations
+nabs-migrations apply-migrations --context PrimaryDbContext
+nabs-migrations apply-migrations --context SecondaryDbContext
+
+# 5. Verify migrations are applied
+nabs-migrations list-migrations
+
+# 6. Test remove (optional)
+nabs-migrations remove-migrations --context PrimaryDbContext
 

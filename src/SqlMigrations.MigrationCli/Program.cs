@@ -29,19 +29,19 @@ app.Configure(config =>
         .WithExample(["drop-db", "--context", "PrimaryDbContext"])
         .WithExample(["drop-db", "./MySolution", "--context", "PrimaryDbContext"]);
 
-    var addMigrationItem = config.AddCommand<AddMigrationCommand>("add-migrations")
+    var addMigrationItem = config.AddCommand<AddMigrationsCommand>("add-migrations")
         .WithDescription("Adds new migrations.")
         .WithExample(["add-migrations"])
         .WithExample(["add-migrations", "./MySolution"])
         .WithExample(["add-migrations", "--context", "PrimaryDbContext", "--migrationName", "AddCustomerTable"])
         .WithExample(["add-migrations", "./MySolution", "--context", "PrimaryDbContext", "--migrationName", "AddCustomerTable"]);
 
-    var removeMigrationItem = config.AddCommand<RemoveMigrationCommand>("remove-migration")
+    var removeMigrationItem = config.AddCommand<RemoveMigrationsCommand>("remove-migrations")
         .WithDescription("Remove the last migration from a DbContext.")
-        .WithExample(["remove-migration"])
-        .WithExample(["remove-migration", "./MySolution"])
-        .WithExample(["remove-migration", "--context", "PrimaryDbContext"])
-        .WithExample(["remove-migration", "./MySolution", "--context", "PrimaryDbContext"]);
+        .WithExample(["remove-migrations"])
+        .WithExample(["remove-migrations", "./MySolution"])
+        .WithExample(["remove-migrations", "--context", "PrimaryDbContext"])
+        .WithExample(["remove-migrations", "./MySolution", "--context", "PrimaryDbContext"]);
 
     var resetMigrationsItem = config.AddCommand<ResetAllMigrationsCommand>("reset-all-migrations")
         .WithDescription("Delete all migrations and start over.")
@@ -64,12 +64,12 @@ if(args.Length > 0)
 
 var menu = new Dictionary<string, string>()
 {
-    { "List Migrations", "list-migrations" },
     { "List Pending Model Changes", "list-pending-model-changes" },
-    { "Add Migration", "add-migrations" },
-    { "Remove Migration", "remove-migrations" },
+    { "List Migrations", "list-migrations" },
+    { "Add Migrations", "add-migrations" },
+    { "Remove Migrations", "remove-migrations" },
     { "Reset All Migrations", "reset-all-migrations" },
-    { "Apply Migration", "apply-migrations" },
+    { "Apply Migrations", "apply-migrations" },
     { "Drop Database (only works for IDesignTimeDbContextFactory)", "drop-db" },
     { "Build Solution", "build" },
     { "Exit", "exit" }

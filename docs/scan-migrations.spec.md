@@ -1,25 +1,26 @@
-# Scan Migrations Command Specification
+# List Migrations Command Specification
 
-The purpose of the `scan-migrations` command is to scan a solution for Entity Framework Core migrations and display them in a tree view. This specification outlines the requirements, options, and expected behavior of the `scan-migrations` command.
+The purpose of the `list-migrations` command is to scan a solution for Entity Framework Core migrations and display them in a tree view. This specification outlines the requirements, options, and expected behavior of the `list-migrations` command.
 
 ## Assumptions
 
-- The `scan-migrations` command assumes that the user has a basic understanding of Entity Framework Core and database migrations.
-- The command will be run within the context of a .NET project that has been properly configured to use Entity Framework Core.
+- The `list-migrations` command assumes that the user has a basic understanding of Entity Framework Core and database migrations.
+- The command will be run within the context of a .NET solution that has been properly configured to use Entity Framework Core.
 - The command only works with DbContext factories that implement `IDesignTimeDbContextFactory<TContext>`.
 
 ## Features
 
-### Scan Migrations Command (ScanMigrationsCommand.cs)
+### List Migrations Command (ListMigrationsCommand.cs)
 
-The `scan-migrations` command operates in a single mode and displays all migrations found in the solution.
+The `list-migrations` command operates in a single mode and displays all migrations found in the solution.
 
 #### Behavior
 
-1. The command scans for all DbContexts in the solution by locating `IDesignTimeDbContextFactory<TContext>` implementations.
-2. For each detected DbContext:
+1. The command builds the solution first.
+2. Scans for all DbContexts in the solution by locating `IDesignTimeDbContextFactory<TContext>` implementations.
+3. For each detected DbContext:
    - Lists all migrations with their status (Applied/Pending) and timestamp.
-3. Displays the results in a tree view format.
+4. Displays the results in a tree view format inside a panel.
 
 ### Command Line Options
 
@@ -33,15 +34,22 @@ The command supports the following options:
 
 ```powershell
 # Run from current directory
-nabs-migrations scan-migrations
+nabs-migrations list-migrations
 
 # Specify a solution path
-nabs-migrations scan-migrations ./MySolution
+nabs-migrations list-migrations ./MySolution
 ```
 
 ## Output Format
 
-The command displays a tree view with the following structure:
+The command displays a panel with a tree view showing:
+
+- Solution name at the root
+- Projects containing migrations
+- DbContexts within each project
+- Migrations within each DbContext with status (Applied/Pending) and timestamp
+
+### Example output:
 
 ```
 ??Solution scanned successfully!??????????????????????????????????????????
@@ -67,5 +75,4 @@ The command displays a tree view with the following structure:
 
 ```powershell
 # Test scan migrations
-nabs-migrations scan-migrations
-```
+nabs-migrations list-migrations
